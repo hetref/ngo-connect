@@ -1,6 +1,6 @@
 import { streamText, Message } from "ai";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import { suggestionPrompt } from "@/data/thikana";
+import { suggestionPrompt } from "@/data/ngo-connect";
 
 const google = createGoogleGenerativeAI({
   apiKey: process.env.GEMINI_API_KEY,

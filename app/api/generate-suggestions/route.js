@@ -3,7 +3,7 @@ import { createGoogleGenerativeAI } from "@ai-sdk/google";
 import { suggestionPrompt } from "@/data/thikana";
 
 const google = createGoogleGenerativeAI({
-  apiKey: 'AIzaSyDOmYsvQ8Vci4swqN5kFvJh0bJPxl8OXAU',
+  apiKey: process.env.GEMINI_API_KEY,
 });
 
 export const runtime = "edge";

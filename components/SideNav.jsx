@@ -3,7 +3,7 @@
 import { motion } from "framer-motion"
 import {
   LayoutDashboard,
-  User,
+  FilePenLine,
   CalendarDays,
   Users,
   IndianRupee,
@@ -22,17 +22,19 @@ import Link from "next/link"
 
 const mainNavItems = [
   { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard/ngo" },
-  { name: "Profile Management", icon: User, href: "/dashboard/ngo/profile" },
+  { name: "Reports", icon: FilePenLine, href: "/dashboard/ngo/reports" },
 ]
 
+
 const managementNavItems = [
-  { name: "Event Management", icon: CalendarDays, href: "/dashboard/ngo/events" },
-  { name: "Volunteer Management", icon: Users, href: "/dashboard/ngo/volunteers" },
+  { name: "Activity Management", icon: CalendarDays, href: "/dashboard/ngo/activities" },
+  { name: "Member Management", icon: Users, href: "/dashboard/ngo/members" },
 ]
+
+
 
 const financeNavItems = [
   { name: "Donation Management", icon: IndianRupee, href: "/dashboard/ngo/donations" },
-  { name: "Sponsorships", icon: BadgeIndianRupee, href: "/dashboard/ngo/sponsorships" },
   { name: "Store Management", icon: Store, href: "/dashboard/ngo/store" },
 ]
 

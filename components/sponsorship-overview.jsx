@@ -30,3 +30,4 @@ export function SponsorshipOverview() {
   )
 }
 
+export default SponsorshipOverview

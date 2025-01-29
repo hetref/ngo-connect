@@ -20,30 +20,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 
-const mainNavItems = [
-  { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard/ngo" },
-  { name: "Reports", icon: FilePenLine, href: "/dashboard/ngo/reports" },
-]
-
-
-const managementNavItems = [
-  { name: "Activity Management", icon: CalendarDays, href: "/dashboard/ngo/activities" },
-  { name: "Member Management", icon: Users, href: "/dashboard/ngo/members" },
-]
-
-
-
-const financeNavItems = [
-  { name: "Donation Management", icon: IndianRupee, href: "/dashboard/ngo/donations" },
-  { name: "Store Management", icon: Store, href: "/dashboard/ngo/store" },
-]
-
-const bottomNavItems = [
-  { name: "Settings", icon: Settings, href: "/dashboard/ngo/settings" },
-  { name: "Logout", icon: LogOut, href: "/logout" },
-]
-
-export function SideNav({ isOpen, setIsOpen }) {
+export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
   const [selectedItem, setSelectedItem] = useState("Dashboard")
   const [isMobile, setIsMobile] = useState(false)
 
@@ -95,9 +72,11 @@ export function SideNav({ isOpen, setIsOpen }) {
         <div className={cn("mb-8 flex items-center", isOpen ? "justify-between" : "justify-center")}>
           <div className="flex items-center">
             <div className="flex-shrink-0 w-8 h-8">
-              <img src="/logo.png" alt="NGO Logo" className="h-full w-full object-contain" />
+              <img src="/logo.png" alt="Logo" className="h-full w-full object-contain" />
             </div>
-            {isOpen && <span className="ml-2 text-xl font-bold">NGO-Connect</span>}
+            {isOpen && <span className="ml-2 text-xl font-bold">
+              NGO-Connect
+            </span>}
           </div>
           {!isMobile && (
             <Button variant="ghost" size="icon" onClick={toggleSideNav} className="hidden md:flex">
@@ -111,15 +90,15 @@ export function SideNav({ isOpen, setIsOpen }) {
           )}
         </div>
         <div className="flex-1 overflow-y-auto">
-          {renderNavItems(mainNavItems)}
-          {isOpen && <div className="my-4 border-t border-gray-200" />}
-          {renderNavItems(managementNavItems)}
-          {isOpen && <div className="my-4 border-t border-gray-200" />}
-          {renderNavItems(financeNavItems)}
+          {renderNavItems(navConfig.mainNavItems)}
+          {type === 'ngo' && isOpen && <div className="my-4 border-t border-gray-200" />}
+          {type === 'ngo' && renderNavItems(navConfig.managementNavItems)}
+          {type === 'ngo' && isOpen && <div className="my-4 border-t border-gray-200" />}
+          {type === 'ngo' && renderNavItems(navConfig.financeNavItems)}
         </div>
         <div className="mt-auto">
           {isOpen && <div className="my-4 border-t border-gray-200" />}
-          {renderNavItems(bottomNavItems)}
+          {renderNavItems(navConfig.bottomNavItems)}
         </div>
       </div>
     </motion.nav>

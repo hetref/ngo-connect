@@ -80,9 +80,11 @@ export default function Chatbot() {
 
   useEffect(() => {
     if (scrollref.current) {
-      scrollref.current.scrollIntoView({ behavior: "smooth" });
+      requestAnimationFrame(() => {
+        scrollref.current.scrollIntoView({ behavior: "smooth" });
+      });
     }
-  }, [messages]);
+  }, [messages]);  
 
   useEffect(() => {
     if (messages.length > 0) {

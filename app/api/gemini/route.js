@@ -25,10 +25,18 @@ const buildGoogleGenAIPrompt = (messages) => [
 
 export async function POST(request) {
   const { messages } = await request.json();
-  const stream = await streamText({
-    model: google("gemini-1.5-pro"),
-    messages: buildGoogleGenAIPrompt(messages),
-    temperature: 0.7,
-  });
-  return stream?.toDataStreamResponse();
+  try {
+    const stream = await streamText({
+      model: google("gemini-1.5-pro"),
+      messages: buildGoogleGenAIPrompt(messages),
+      temperature: 0.7,
+    });
+    return stream?.toDataStreamResponse();
+  } catch (error) {
+    console.error("Chatbot API Error:", error);
+    return new Response(JSON.stringify({ error: "Failed to fetch response" }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import {
@@ -53,92 +53,84 @@ export default function Chatbot() {
     stop,
     reload,
     error,
-  } = useChat({ 
-    api: "/api/gemini",
-    id: 'ngo-chat',
-    initialMessages: [],
-    body: {
-      temperature: 0.7, // Lower temperature for more focused responses
-      max_tokens: 200,  // Limit response length
-      stream: true,     // Enable streaming
-    },
-    onResponse: (response) => {
-      // Log response headers and status
-      console.log('Stream response:', response.status);
-    },
-    onFinish: (message) => {
-      console.log("AI Response:", message);
-    },
-    onError: (error) => {
-      console.error("Chat Error:", error);
-    }
-  });
-
+  } = useChat({ api: "/api/gemini" });
   const scrollref = useRef(null);
   const [suggestions, setSuggestions] = useState([]);
 
-  // Optimize scroll behavior
-  const scrollToBottom = () => {
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 200) {
+        setShowChatIcon(true);
+      } else {
+        setShowChatIcon(false);
+        setIsChatOpen(false);
+      }
+    };
+
+    handleScroll();
+
+    window.addEventListener("scroll", handleScroll);
+    return () => {
+      window.removeEventListener("scroll", handleScroll);
+    };
+  }, []);
+  const toggleChat = () => {
+    setIsChatOpen(!isChatOpen);
+  };
+
+  useEffect(() => {
     if (scrollref.current) {
       requestAnimationFrame(() => {
         scrollref.current.scrollIntoView({ behavior: "smooth" });
       });
     }
-  };
+  }, [messages]);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  // Debounced search handler for suggestions
-  useEffect(() => {
-    if (!messages.length) return;
-    
-    const lastMessage = messages[messages.length - 1];
-    if (lastMessage.role !== "user") return;
-
-    const content = lastMessage.content.toLowerCase();
-    const getSuggestions = () => {
-      if (content.includes("help")) {
-        return [
-          "How to get started?",
-          "Talk to support",
-          "Event creation process",
-        ];
-      } else if (content.includes("pricing")) {
-        return [
-          "Is this free?",
-          "Why is this free?",
-          "Learn about NGO-CONNECT",
-        ];
-      } else if (content.includes("volunteer")) {
-        return [
-          "Volunteer registration process",
-          "KYC requirements",
-          "Mark attendance",
-        ];
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.role === "user") {
+        // Add custom logic for generating suggestions
+        if (lastMessage.content.includes("help")) {
+          setSuggestions([
+            "How to get started?",
+            "Talk to support",
+            "Event creation process",
+          ]);
+        } else if (lastMessage.content.includes("pricing")) {
+          setSuggestions([
+            "Is this free?",
+            "Why is this free?",
+            "Learn about NGO-CONNECT",
+          ]);
+        } else if (lastMessage.content.includes("volunteer")) {
+          setSuggestions([
+            "Volunteer registration process",
+            "KYC requirements",
+            "Mark attendance",
+          ]);
+        } else {
+          setSuggestions(["Tell me more", "Show features", "Contact support"]);
+        }
       }
-      return ["Tell me more", "Show features", "Contact support"];
-    };
+    }
+  }, [messages]);  
 
-    setSuggestions(getSuggestions());
-  }, [messages]);
-
-  // Optimized suggestion click handler
-  const handleSuggestionClick = async (suggestion) => {
+  const handleSuggestionClick = (suggestion) => {
+    // Directly send suggestion as user input
     handleInputChange({ target: { value: suggestion } });
-    await handleSubmit();
-  };
-
-  // Optimized chat toggle
-  const toggleChat = () => {
-    setIsChatOpen((prev) => !prev);
+    handleSubmit();
   };
 
   return (
     <div>
       <AnimatePresence>
+        {/* {showChatIcon && ( */}
         <motion.div
+          // initial={{ opacity: 0, y: 100 }}
+          // animate={{ opacity: 1, y: 0 }}
+          // exit={{ opacity: 0, y: 100 }}
+          // transition={{ duration: 0.2 }}
           className="fixed bottom-4 right-4 z-80"
         >
           <Button
@@ -154,11 +146,15 @@ export default function Chatbot() {
             )}
           </Button>
         </motion.div>
+        {/* )} */}
       </AnimatePresence>
-
       <AnimatePresence>
         {isChatOpen && (
           <motion.div
+            // initial={{ opacity: 0, scale: 0.8 }}
+            // animate={{ opacity: 1, scale: 1 }}
+            // exit={{ opacity: 0, scale: 0.8 }}
+            // transition={{ duration: 0.2 }}
             className="fixed bottom-20 right-4 z-50 w-[95%] md:w-[500px]"
           >
             <Card className="border-2">
@@ -201,17 +197,35 @@ export default function Chatbot() {
                           children={message.content}
                           remarkPlugins={[remarkGfm]}
                           components={{
-                            code: ({ node, inline, className, children, ...props }) => {
+                            code({
+                              node,
+                              inline,
+                              className,
+                              children,
+                              ...props
+                            }) {
                               return inline ? (
-                                <code {...props} className="bg-gray-200 px-1 rounded">
+                                <code
+                                  {...props}
+                                  className="bg-gray-200 px-1 rounded"
+                                >
                                   {children}
                                 </code>
                               ) : (
-                                <pre {...props} className="bg-gray-200 p-2 rounded">
+                                <pre
+                                  {...props}
+                                  className="bg-gray-200 p-2 rounded"
+                                >
                                   <code>{children}</code>
                                 </pre>
                               );
-                            }
+                            },
+                            ul: ({ children }) => (
+                              <ul className="list-disc ml-4">{children}</ul>
+                            ),
+                            ol: ({ children }) => (
+                              <li className="list-decimal ml-4">{children}</li>
+                            ),
                           }}
                         />
                       </div>
@@ -225,7 +239,7 @@ export default function Chatbot() {
                         type="button"
                         onClick={() => stop()}
                       >
-                        stop generating
+                        loading
                       </button>
                     </div>
                   )}
@@ -241,7 +255,7 @@ export default function Chatbot() {
                       </button>
                     </div>
                   )}
-                  <div ref={scrollref} />
+                  <div ref={scrollref}></div>
                 </ScrollArea>
                 {suggestions.length > 0 && (
                   <SuggestionBar
@@ -251,25 +265,27 @@ export default function Chatbot() {
                 )}
               </CardContent>
               <CardFooter className="p-0">
-                <form
-                  onSubmit={handleSubmit}
-                  className="flex w-full items-center space-x-4"
-                >
-                  <Input
-                    value={input}
-                    onChange={handleInputChange}
-                    className="flex-1 w-[380px] p-5 ml-5"
-                    placeholder="Type your message here..."
-                  />
-                  <Button
-                    type="submit"
-                    className="size-10"
-                    disabled={isLoading}
-                    size="icon"
+                <ScrollArea className="h-[100px]">
+                  <form
+                    onSubmit={handleSubmit}
+                    className="flex w-full items-center space-x-4"
                   >
-                    <Send className="size-5" />
-                  </Button>
-                </form>
+                    <Input
+                      value={input}
+                      onChange={handleInputChange}
+                      className="flex-1 w-[380px] p-5 ml-5"
+                      placeholder="Type your message here..."
+                    />
+                    <Button
+                      type="submit"
+                      className="size-10"
+                      disabled={isLoading}
+                      size="icon"
+                    >
+                      <Send className="size-5" />
+                    </Button>
+                  </form>
+                </ScrollArea>
               </CardFooter>
             </Card>
           </motion.div>

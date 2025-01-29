@@ -2,12 +2,10 @@ import React from "react";
 
 const layout = ({ children }) => {
   return (
-    <div className="h-full relative">
-      (
+    <div className="h-full">
         <>
-          <main className="md:pl-72 pb-10">{children}</main>
+          <main>{children}</main>
         </>
-      )
     </div>
   );
 };

@@ -1,11 +1,12 @@
-import { Geist, Geist_Mono, Ubuntu } from "next/font/google";
+import { Nunito } from "next/font/google";
 import "./globals.css";
+import { Toaster } from "react-hot-toast";
 
-const ubuntu = Ubuntu({
-  variable: "--font-ubuntu",
-  subsets: ["latin"],
-  weight: ["400", "500", "700"],
-});
+// const ubuntu = Nunito({
+//   variable: "--font-ubuntu",
+//   subsets: ["latin"],
+//   weight: ["400", "500", "700"],
+// });
 
 export const metadata = {
   title: "Create Next App",
@@ -16,8 +17,9 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <body
-        className={`${ubuntu.variable} antialiased`}
+        className={`antialiased`}
       >
+        <Toaster />
         {children}
       </body>
     </html>

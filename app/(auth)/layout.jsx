@@ -3,8 +3,32 @@
 import Image from "next/image";
 import logo from "@/public/logo.png";
 import bg from "@/public/bg.jpg";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase";
+import Loading from "@/components/loading/Loading";
 
 const AuthLayout = ({ children }) => {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        router.push("/dashboard");
+      } else {
+        setLoading(false);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  if (loading) {
+    return <Loading />;
+  }
+
   return (
     <section className="bg-white min-h-screen">
       <div className="grid lg:grid-cols-12 items-center justify-center">
@@ -31,7 +55,8 @@ const AuthLayout = ({ children }) => {
             </a>
             <h1 className="text-3xl font-serif p-4">Welcome to NGO-Connect!</h1>
             <p className="text-lg font-serif pl-4">
-              where every detail is crafted to make your experience extraordinary
+              where every detail is crafted to make your experience
+              extraordinary
             </p>
           </div>
         </section>

@@ -11,17 +11,19 @@ import {
   LogOut, 
   User,
   UsersRound,
-  IndianRupee
+  IndianRupee,
+  ReceiptIndianRupee
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 
 const NavConfig = {
   mainNavItems: [
     { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard/user" },
-    { name: "Search Activities", icon: Search, href: "/dashboard/user/activities" },
+    { name: "Search Activities", icon: Search, href: "/dashboard/user/activities/search-activity" },
     { name: "Activity Participation", icon: Calendar, href: "/dashboard/user/activities" },
     { name: "Volunteered", icon: UsersRound, href: "/dashboard/user/volunteer" },
     { name: "Donations", icon: IndianRupee, href: "/dashboard/user/donations" },
+    { name: "Donate", icon: ReceiptIndianRupee, href: "/dashboard/user/donations/donate" },
   ],
   bottomNavItems: [
     { name: "Profile", icon: User, href: "/dashboard/user/profile" },

@@ -1,157 +1,211 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Edit, Trash2, Eye, Pencil } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog"
-import { Label } from "@/components/ui/label"
-
-// Sample member data
-const initialMembers = [
-  { id: 1, name: "John Doe", email: "john@example.com" },
-  { id: 2, name: "Jane Smith", email: "jane@example.com" },
-  { id: 3, name: "Alice Johnson", email: "alice@example.com" },
-]
-
+import { useEffect, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Eye, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import {
+  collection,
+  doc,
+  setDoc,
+  deleteDoc,
+  onSnapshot,
+  getDoc,
+} from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
+import { v4 as uuidv4 } from "uuid";
+import toast from "react-hot-toast";
 export default function NGOMembersPage() {
-  const [members, setMembers] = useState(initialMembers)
-  const [newMember, setNewMember] = useState({ name: "", email: "", role: "" })
-  const [searchTerm, setSearchTerm] = useState("")
-  const [editingMember, setEditingMember] = useState(null)
-  const [isViewModalOpen, setIsViewModalOpen] = useState(false)
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
-  const [viewingMember, setViewingMember] = useState(null)
-  const [open, setOpen] = useState(false)
-  const [viewOpen, setViewOpen] = useState(false)
-  const [editOpen, setEditOpen] = useState(false)
-  const [selectedMember, setSelectedMember] = useState(null)
+  const [members, setMembers] = useState([]);
+  const [newMember, setNewMember] = useState({ name: "", email: "" });
+  const [searchTerm, setSearchTerm] = useState("");
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [open, setOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
+  const [user, setUser] = useState(null);
+  const [ngoData, setNgoData] = useState({});
 
-  const addMember = () => {
-    if (newMember.name && newMember.email) {
-      setMembers([...members, { ...newMember, id: Date.now() }])
-      setNewMember({ name: "", email: "", role: "" })
+  // Monitor authentication state
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        fetchNgoData(currentUser.uid);
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  // Fetch organization data
+  const fetchNgoData = async (uid) => {
+    try {
+      const orgDoc = await getDoc(doc(db, "ngo", uid));
+      if (orgDoc.exists()) {
+        setNgoData(orgDoc.data());
+      }
+    } catch (error) {
+      console.error("Error fetching organization data:", error);
     }
-  }
+  };
 
-  const deleteMember = (id) => {
-    setMembers(members.filter((member) => member.id !== id))
-  }
+  // Real-time members subscription
+  useEffect(() => {
+    if (!user) return;
 
-  const updateMember = () => {
-    setMembers(members.map((member) => (member.id === editingMember.id ? editingMember : member)))
-    setIsEditModalOpen(false)
-  }
+    const membersRef = collection(db, "ngo", user.uid, "members");
+    const unsubscribe = onSnapshot(membersRef, (snapshot) => {
+      const membersList = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      setMembers(membersList);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const addMember = async () => {
+    if (!newMember.name || !newMember.email) return;
+    const vCode = uuidv4();
+    try {
+      const memberRef = doc(db, "ngo", user.uid, "members", newMember.email);
+      await setDoc(memberRef, {
+        name: newMember.name,
+        email: newMember.email,
+        createdAt: new Date().toISOString(),
+        role: "member",
+        status: "pending",
+        verificationCode: vCode,
+      });
+      fetch("/api/member-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          verificationCode: vCode,
+          ngoId: user.uid,
+          email: newMember.email,
+          ngoName: ngoData.name,
+          verificationLink: `${window.location.origin}/register/member/${user.uid}/${vCode}`,
+        }),
+      }).then((res) => {
+        if (res.ok) {
+          console.log("Email sent successfully!");
+        } else {
+          console.error("Error sending email:", res.status);
+        }
+      });
+      setNewMember({ name: "", email: "" });
+      toast.success("Member added successfully!");
+      setOpen(false);
+    } catch (error) {
+      console.error("Error adding member:", error);
+    }
+  };
+
+  const deleteMember = async (email) => {
+    try {
+      await deleteDoc(doc(db, "ngo", user.uid, "members", email));
+      toast.success("Member deleted successfully!");
+    } catch (error) {
+      console.error("Error deleting member:", error);
+    }
+  };
 
   const filteredMembers = members.filter(
     (member) =>
-      member.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      member.email.toLowerCase().includes(searchTerm.toLowerCase()),
-  )
-
-  const handleSubmit = (e) => {
-    e.preventDefault()
-    // Add your member creation logic here
-    setOpen(false)
-  }
-
-  const handleEdit = (e) => {
-    e.preventDefault()
-    // Add your member edit logic here
-    setEditOpen(false)
-  }
-
-  const openViewModal = (member) => {
-    setSelectedMember(member)
-    setViewOpen(true)
-  }
-
-  const openEditModal = (member) => {
-    setSelectedMember(member)
-    setEditOpen(true)
-  }
+      member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      member.email?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
-      className="container mx-auto space-y-8"
-    >
-      <h1 className="text-3xl font-bold">Member Management</h1>
+    <div className="container mx-auto py-8">
+      <Card>
+        <CardHeader>
+          <CardTitle>Member Management</CardTitle>
+        </CardHeader>
 
-      <Card className="relative">
-        <div className="absolute top-4 right-4">
+        <CardContent>
+          {/* Add Member Dialog */}
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
-              <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
-                Add Member
-              </Button>
+              <Button className="mb-4">Add Member</Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent>
               <DialogHeader>
                 <DialogTitle>Add New Member</DialogTitle>
                 <DialogDescription>
                   Fill in the details to add a new member to your organization.
                 </DialogDescription>
               </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Full Name</Label>
-                  <Input id="name" placeholder="Enter member's name" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="Enter member's email"
-                    required 
+              <div className="space-y-4">
+                <div>
+                  <Label>Full Name</Label>
+                  <Input
+                    value={newMember.name}
+                    onChange={(e) =>
+                      setNewMember({ ...newMember, name: e.target.value })
+                    }
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="role">Role</Label>
-                  <Input 
-                    id="role" 
-                    placeholder="Enter member's role"
-                    required 
+                <div>
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    value={newMember.email}
+                    onChange={(e) =>
+                      setNewMember({ ...newMember, email: e.target.value })
+                    }
                   />
                 </div>
-                <div className="flex justify-end space-x-2 pt-4">
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => setOpen(false)}
-                  >
+                <div className="flex justify-end space-x-2">
+                  <Button variant="outline" onClick={() => setOpen(false)}>
                     Cancel
                   </Button>
-                  <Button 
-                    type="submit"
-                    className="bg-[#1CAC78] hover:bg-[#158f63]"
-                  >
-                    Add Member
-                  </Button>
+                  <Button onClick={addMember}>Add Member</Button>
                 </div>
-              </form>
+              </div>
             </DialogContent>
           </Dialog>
-        </div>
 
-        <CardHeader>
-          <CardTitle>Member List</CardTitle>
-          <CardDescription>Manage your organization members here.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <Input placeholder="Search members..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+          <Input
+            placeholder="Search members..."
+            className="mb-4"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+          />
+
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -160,24 +214,23 @@ export default function NGOMembersPage() {
                 <TableRow key={member.id}>
                   <TableCell>{member.name}</TableCell>
                   <TableCell>{member.email}</TableCell>
-                  <TableCell>{member.role}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openViewModal(member)}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedMember(member);
+                          setViewOpen(true);
+                        }}
                       >
                         <Eye className="h-4 w-4" />
                       </Button>
                       <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openEditModal(member)}
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteMember(member.email)}
                       >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="outline" size="sm" onClick={() => deleteMember(member.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -191,7 +244,7 @@ export default function NGOMembersPage() {
 
       {/* View Member Modal */}
       <Dialog open={viewOpen} onOpenChange={setViewOpen}>
-        <DialogContent className="sm:max-w-[425px]">
+        <DialogContent>
           <DialogHeader>
             <DialogTitle>Member Details</DialogTitle>
           </DialogHeader>
@@ -199,86 +252,19 @@ export default function NGOMembersPage() {
             <div className="space-y-4">
               <div>
                 <Label>Full Name</Label>
-                <p className="mt-1">{selectedMember.name}</p>
+                <div className="mt-1">{selectedMember.name}</div>
               </div>
               <div>
                 <Label>Email</Label>
-                <p className="mt-1">{selectedMember.email}</p>
-              </div>
-              <div>
-                <Label>Role</Label>
-                <p className="mt-1">{selectedMember.role}</p>
+                <div className="mt-1">{selectedMember.email}</div>
               </div>
               <div className="flex justify-end">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setViewOpen(false)}
-                >
-                  Close
-                </Button>
+                <Button onClick={() => setViewOpen(false)}>Close</Button>
               </div>
             </div>
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Edit Member Modal */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Member</DialogTitle>
-            <DialogDescription>
-              Update member information.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedMember && (
-            <form onSubmit={handleEdit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-name">Full Name</Label>
-                <Input 
-                  id="edit-name" 
-                  defaultValue={selectedMember.name}
-                  required 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-email">Email</Label>
-                <Input 
-                  id="edit-email" 
-                  type="email" 
-                  defaultValue={selectedMember.email}
-                  required 
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-role">Role</Label>
-                <Input 
-                  id="edit-role" 
-                  defaultValue={selectedMember.role}
-                  required 
-                />
-              </div>
-              <div className="flex justify-end space-x-2 pt-4">
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => setEditOpen(false)}
-                >
-                  Cancel
-                </Button>
-                <Button 
-                  type="submit"
-                  className="bg-[#1CAC78] hover:bg-[#158f63]"
-                >
-                  Save Changes
-                </Button>
-              </div>
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
-    </motion.div>
-  )
+    </div>
+  );
 }
-

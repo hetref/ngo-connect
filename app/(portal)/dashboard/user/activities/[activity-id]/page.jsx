@@ -1,76 +1,64 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { useParams } from "next/navigation"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
-import { Calendar, MapPin, Users, Edit, Trash2, Bookmark } from "lucide-react"
-
-const events = [
-  {
-    id: 1,
-    title: "Beach Cleanup",
-    date: "2023-08-15",
-    location: "Sunny Beach",
-    volunteers: 45,
-    description: "Join us for a day of cleaning up our beautiful beaches and protecting marine life.",
-    images: [
-      "https://source.unsplash.com/random/800x600/?beach,cleanup",
-      "https://source.unsplash.com/random/800x600/?ocean,plastic",
-      "https://source.unsplash.com/random/800x600/?volunteer,beach",
-    ],
-  },
-  {
-    id: 2,
-    title: "Food Drive",
-    date: "2023-08-20",
-    location: "Community Center",
-    volunteers: 30,
-    description: "Help us collect and distribute food to those in need in our community.",
-    images: [
-      "https://source.unsplash.com/random/800x600/?food,donation",
-      "https://source.unsplash.com/random/800x600/?volunteer,foodbank",
-      "https://source.unsplash.com/random/800x600/?community,help",
-    ],
-  },
-  {
-    id: 3,
-    title: "Tree Planting",
-    date: "2023-08-10",
-    location: "City Park",
-    volunteers: 60,
-    description: "Let's make our city greener by planting trees in the local park.",
-    images: [
-      "https://source.unsplash.com/random/800x600/?tree,planting",
-      "https://source.unsplash.com/random/800x600/?forest,sapling",
-      "https://source.unsplash.com/random/800x600/?nature,conservation",
-    ],
-  },
-]
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { useParams } from "next/navigation";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Calendar, MapPin, Users } from "lucide-react";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase"; // Ensure correct Firebase setup
 
 export default function UserActivitiesPage() {
-  const params = useParams()
-  const eventId = parseInt(params["activity-id"])
-  const event = events.find((e) => e.id === eventId)
+  const params = useParams();
+  const eventId = params["activity-id"];
+  const [event, setEvent] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const [currentImageIndex, setCurrentImageIndex] = useState(0)
+  useEffect(() => {
+    async function fetchEvent() {
+      if (!eventId) return;
+      try {
+        const docRef = doc(db, "activities", eventId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setEvent(docSnap.data());
+        } else {
+          setEvent(null);
+        }
+      } catch (error) {
+        console.error("Error fetching event:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchEvent();
+  }, [eventId]);
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        Loading...
+      </div>
+    );
+  }
 
   if (!event) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <h2 className="text-2xl font-semibold">Event not found</h2>
       </div>
-    )
+    );
   }
 
   const nextImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % event.images.length)
-  }
+    setCurrentImageIndex((prevIndex) => (prevIndex + 1) % 1);
+  };
 
   const prevImage = () => {
-    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + event.images.length) % event.images.length)
-  }
+    setCurrentImageIndex((prevIndex) => (prevIndex - 1 + 1) % 1);
+  };
 
   return (
     <motion.div
@@ -80,22 +68,10 @@ export default function UserActivitiesPage() {
       className="container mx-auto"
     >
       <Card className="overflow-hidden relative">
-        <div className="absolute top-4 right-4 z-10 flex space-x-2">
-          <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
-            <Edit className="mr-2 h-4 w-4" /> Edit Event
-          </Button>
-          <Button variant="destructive">
-            <Trash2 className="mr-2 h-4 w-4" /> Delete Event
-          </Button>
-          <Button variant="outline" className="bg-white">
-            <Bookmark className="mr-2 h-4 w-4" /> Bookmark
-          </Button>
-        </div>
-
         <div className="relative h-96">
           <img
-            src={event.images[currentImageIndex] || "/placeholder.svg"}
-            alt={`${event.title} - Image ${currentImageIndex + 1}`}
+            src={event.featuredImageUrl || "/placeholder.svg"}
+            alt={event.eventName}
             className="h-full w-full object-cover"
           />
           <div className="absolute bottom-4 right-4 space-x-2">
@@ -108,13 +84,13 @@ export default function UserActivitiesPage() {
           </div>
         </div>
         <CardHeader>
-          <CardTitle className="text-3xl">{event.title}</CardTitle>
+          <CardTitle className="text-3xl">{event.eventName}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="mb-4 flex items-center space-x-4 text-gray-500">
             <div className="flex items-center space-x-2">
               <Calendar className="h-5 w-5" />
-              <span>{event.date}</span>
+              <span>{event.eventDate}</span>
             </div>
             <div className="flex items-center space-x-2">
               <MapPin className="h-5 w-5" />
@@ -122,13 +98,24 @@ export default function UserActivitiesPage() {
             </div>
             <div className="flex items-center space-x-2">
               <Users className="h-5 w-5" />
-              <span>{event.volunteers} volunteers</span>
+              <span>Accepting {event.acceptingVolunteers} volunteers</span>
             </div>
           </div>
-          <p className="mb-6 text-gray-700">{event.description}</p>
+          <p className="mb-6 text-gray-700">{event.shortDescription}</p>
+          <div className="flex space-x-4">
+            <Button asChild>
+              <a href={`/opt-in-volunteer/${event.ngoId}/${event.eventId}`}>
+                Register as Volunteer
+              </a>
+            </Button>
+            <Button variant="outline" asChild>
+              <a href={`/opt-in-participant/${event.ngoId}/${event.eventId}`}>
+                Register as Participant
+              </a>
+            </Button>
+          </div>
         </CardContent>
       </Card>
     </motion.div>
-  )
+  );
 }
-

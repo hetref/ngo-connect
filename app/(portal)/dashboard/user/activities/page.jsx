@@ -1,7 +1,7 @@
-"use client"
+"use client";
 
-import React, { useState } from 'react';
-import { Calendar, MapPin, Download } from 'lucide-react';
+import React, { useState } from "react";
+import { Calendar, MapPin, Download } from "lucide-react";
 
 // Mock data for demonstration
 const upcomingEvents = [
@@ -43,8 +43,10 @@ const pastEvents = [
 ];
 
 // Card components
-const Card = ({ children, className = '' }) => (
-  <div className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}>
+const Card = ({ children, className = "" }) => (
+  <div
+    className={`rounded-lg border bg-card text-card-foreground shadow-sm ${className}`}
+  >
     {children}
   </div>
 );
@@ -53,8 +55,12 @@ const CardHeader = ({ children }) => (
   <div className="flex flex-col space-y-1.5 p-6">{children}</div>
 );
 
-const CardTitle = ({ children, className = '' }) => (
-  <h3 className={`text-2xl font-semibold leading-none tracking-tight ${className}`}>{children}</h3>
+const CardTitle = ({ children, className = "" }) => (
+  <h3
+    className={`text-2xl font-semibold leading-none tracking-tight ${className}`}
+  >
+    {children}
+  </h3>
 );
 
 const CardContent = ({ children }) => (
@@ -62,20 +68,29 @@ const CardContent = ({ children }) => (
 );
 
 // Button component
-const Button = ({ children, className = '', variant = 'default', size = 'default', ...props }) => {
-  const baseStyles = 'inline-flex items-center justify-center rounded-md font-medium transition-colors';
+const Button = ({
+  children,
+  className = "",
+  variant = "default",
+  size = "default",
+  ...props
+}) => {
+  const baseStyles =
+    "inline-flex items-center justify-center rounded-md font-medium transition-colors";
   const variantStyles = {
-    default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-    outline: 'border border-input bg-background hover:bg-accent hover:text-accent-foreground',
-    destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
+    default: "bg-primary text-primary-foreground hover:bg-primary/90",
+    outline:
+      "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
+    destructive:
+      "bg-destructive text-destructive-foreground hover:bg-destructive/90",
   };
   const sizeStyles = {
-    default: 'h-10 px-4 py-2',
-    sm: 'h-9 px-3',
+    default: "h-10 px-4 py-2",
+    sm: "h-9 px-3",
   };
 
   return (
-    <button 
+    <button
       className={`${baseStyles} ${variantStyles[variant]} ${sizeStyles[size]} ${className}`}
       {...props}
     >
@@ -85,26 +100,27 @@ const Button = ({ children, className = '', variant = 'default', size = 'default
 };
 
 // Badge component with custom colors
-const Badge = ({ children, variant = 'default', className = '' }) => {
-  const baseStyles = 'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors';
-  
+const Badge = ({ children, variant = "default", className = "" }) => {
+  const baseStyles =
+    "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors";
+
   // Custom styles based on content
-  let customStyle = '';
+  let customStyle = "";
   switch (children) {
-    case 'Volunteer':
-      customStyle = 'bg-blue-100 text-blue-800';
+    case "Volunteer":
+      customStyle = "bg-blue-100 text-blue-800";
       break;
-    case 'Coordinator':
-      customStyle = 'bg-purple-100 text-purple-800';
+    case "Coordinator":
+      customStyle = "bg-purple-100 text-purple-800";
       break;
-    case 'Ongoing':
-      customStyle = 'bg-green-100 text-green-800';
+    case "Ongoing":
+      customStyle = "bg-green-100 text-green-800";
       break;
-    case 'Upcoming':
-      customStyle = 'bg-yellow-100 text-yellow-800';
+    case "Upcoming":
+      customStyle = "bg-yellow-100 text-yellow-800";
       break;
     default:
-      customStyle = 'bg-gray-100 text-gray-800';
+      customStyle = "bg-gray-100 text-gray-800";
   }
 
   return (
@@ -115,10 +131,10 @@ const Badge = ({ children, variant = 'default', className = '' }) => {
 };
 
 const ActivityParticipationPage = () => {
-  const [liveEvent, setLiveEvent] = useState({ 
-    id: 5, 
-    name: "Blood Donation Camp", 
-    location: "Kolkata Hospital" 
+  const [liveEvent, setLiveEvent] = useState({
+    id: 5,
+    name: "Blood Donation Camp",
+    location: "Kolkata Hospital",
   });
 
   return (
@@ -136,8 +152,8 @@ const ActivityParticipationPage = () => {
                 <h3 className="font-semibold">{liveEvent.name}</h3>
                 <p className="text-sm text-gray-500">{liveEvent.location}</p>
               </div>
-              <Button 
-                onClick={() => setLiveEvent(null)} 
+              <Button
+                onClick={() => setLiveEvent(null)}
                 className="bg-green-600 hover:bg-green-700"
               >
                 Mark Attendance
@@ -154,7 +170,10 @@ const ActivityParticipationPage = () => {
         <CardContent>
           <div className="space-y-4">
             {upcomingEvents.map((event) => (
-              <div key={event.id} className="flex items-center justify-between border-b pb-4">
+              <div
+                key={event.id}
+                className="flex items-center justify-between border-b pb-4"
+              >
                 <div>
                   <h3 className="font-semibold">{event.name}</h3>
                   <p className="text-sm text-gray-500">{event.ngo}</p>
@@ -166,9 +185,7 @@ const ActivityParticipationPage = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <Badge>
-                    {event.status}
-                  </Badge>
+                  <Badge>{event.status}</Badge>
                   <div className="mt-2 space-x-2">
                     <Button variant="outline" size="sm">
                       View Details
@@ -191,7 +208,10 @@ const ActivityParticipationPage = () => {
         <CardContent>
           <div className="space-y-4">
             {pastEvents.map((event) => (
-              <div key={event.id} className="flex items-center justify-between border-b pb-4">
+              <div
+                key={event.id}
+                className="flex items-center justify-between border-b pb-4"
+              >
                 <div>
                   <h3 className="font-semibold">{event.name}</h3>
                   <p className="text-sm text-gray-500">{event.ngo}</p>

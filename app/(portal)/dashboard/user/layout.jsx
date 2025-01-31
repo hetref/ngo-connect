@@ -13,7 +13,7 @@ import {
   UsersRound,
   IndianRupee,
   ReceiptIndianRupee,
-  Users
+  Users,
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
@@ -25,11 +25,27 @@ import Loading from "@/components/loading/Loading";
 const NavConfig = {
   mainNavItems: [
     { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard/user" },
-    { name: "Search Activities", icon: Search, href: "/dashboard/user/activities/search-activity" },
-    { name: "Activity Participation", icon: Calendar, href: "/dashboard/user/activities" },
-    { name: "Volunteered", icon: UsersRound, href: "/dashboard/user/volunteer" },
+    {
+      name: "Search Activities",
+      icon: Search,
+      href: "/dashboard/user/activities/search-activity",
+    },
+    {
+      name: "Activity Participation",
+      icon: Calendar,
+      href: "/dashboard/user/activities",
+    },
+    {
+      name: "Volunteered",
+      icon: UsersRound,
+      href: "/dashboard/user/volunteer",
+    },
     { name: "Donations", icon: IndianRupee, href: "/dashboard/user/donations" },
-    { name: "Donate", icon: ReceiptIndianRupee, href: "/dashboard/user/donations/donate" },
+    {
+      name: "Donate",
+      icon: ReceiptIndianRupee,
+      href: "/dashboard/user/donations/donate",
+    },
     { name: "NGO Membership", icon: Users, href: "/dashboard/user/member" },
   ],
   bottomNavItems: [

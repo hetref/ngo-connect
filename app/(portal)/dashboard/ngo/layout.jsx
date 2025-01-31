@@ -26,19 +26,19 @@ const ngoNavConfig = {
   ],
   managementNavItems: [
     {
-      name: "Activity Management",
+      name: "Activities",
       icon: CalendarDays,
       href: "/dashboard/ngo/activities",
     },
-    { name: "Member Management", icon: Users, href: "/dashboard/ngo/members" },
+    { name: "Members", icon: Users, href: "/dashboard/ngo/members" },
   ],
   financeNavItems: [
     {
-      name: "Donation Management",
+      name: "Donations",
       icon: IndianRupee,
       href: "/dashboard/ngo/donations",
     },
-    { name: "Store Management", icon: Store, href: "/dashboard/ngo/store" },
+    { name: "Inventory", icon: Store, href: "/dashboard/ngo/inventory" },
   ],
   bottomNavItems: [
     { name: "Settings", icon: Settings, href: "/dashboard/ngo/settings" },

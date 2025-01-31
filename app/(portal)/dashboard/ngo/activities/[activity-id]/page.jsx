@@ -6,6 +6,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Calendar, MapPin, Users, Edit, Trash2, Bookmark } from "lucide-react"
+import { PayoutManagement } from "@/components/payout-management"
 
 const events = [
   {
@@ -79,16 +80,13 @@ export default function NGOActivitiesPage() {
       transition={{ duration: 0.5 }}
       className="container mx-auto"
     >
-      <Card className="overflow-hidden relative">
+      <Card className="overflow-hidden relative mb-10">
         <div className="absolute top-4 right-4 z-10 flex space-x-2">
           <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
             <Edit className="mr-2 h-4 w-4" /> Edit Event
           </Button>
           <Button variant="destructive">
             <Trash2 className="mr-2 h-4 w-4" /> Delete Event
-          </Button>
-          <Button variant="outline" className="bg-white">
-            <Bookmark className="mr-2 h-4 w-4" /> Bookmark
           </Button>
         </div>
 
@@ -128,6 +126,7 @@ export default function NGOActivitiesPage() {
           <p className="mb-6 text-gray-700">{event.description}</p>
         </CardContent>
       </Card>
+      <PayoutManagement/>
     </motion.div>
   )
 }

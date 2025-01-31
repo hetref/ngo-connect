@@ -1,13 +1,37 @@
 "use client";
-import { useEffect, useState } from "react";
+
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Plus, Users } from "lucide-react";
-import { getFirestore, doc, getDoc, onSnapshot } from "firebase/firestore";
-// import { getAuth } from "firebase/auth";
-import { auth } from "@/lib/firebase";
-// import { useAuth } from "@/context/AuthContext"; // Adjust import based on your auth setup
+import { Calendar, MapPin, Users } from "lucide-react";
+import { MetricsOverview } from "@/components/metrics-overview";
+
+const events = [
+  {
+    id: 1,
+    title: "Beach Cleanup",
+    date: "2023-08-15",
+    location: "Sunny Beach",
+    volunteers: 45,
+    image: "https://source.unsplash.com/random/800x600/?beach",
+  },
+  {
+    id: 2,
+    title: "Food Drive",
+    date: "2023-08-20",
+    location: "Community Center",
+    volunteers: 30,
+    image: "https://source.unsplash.com/random/800x600/?food",
+  },
+  {
+    id: 3,
+    title: "Tree Planting",
+    date: "2023-08-10",
+    location: "City Park",
+    volunteers: 60,
+    image: "https://source.unsplash.com/random/800x600/?tree",
+  },
+];
 
 export default function NGOActivitiesPage() {
   const [activities, setActivities] = useState([]);
@@ -119,17 +143,10 @@ export default function NGOActivitiesPage() {
       transition={{ duration: 0.5 }}
       className="container mx-auto"
     >
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="mb-8 text-3xl font-bold">Activity Management</h1>
-        <Link
-          href="/dashboard/ngo/activities/new"
-          className="flex items-center px-4 py-2 text-sm font-medium text-white bg-[#1CAC78] rounded-md shadow-sm"
-        >
-          Create Activity <Plus className="h-4 w-4" />
-        </Link>
-      </div>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {activities.map((activity) => (
+      <h1 className="mb-8 text-3xl font-bold">Activity Management</h1>
+      <MetricsOverview />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-10">
+        {events.map((event) => (
           <motion.div
             key={activity.id}
             initial={{ opacity: 0, y: 20 }}

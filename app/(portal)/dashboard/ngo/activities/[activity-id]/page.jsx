@@ -15,6 +15,8 @@ import {
   ArrowBigDown,
   MoveUpRight,
 } from "lucide-react";
+import { PayoutManagement } from "@/components/payout-management";
+
 import {
   getFirestore,
   doc,
@@ -45,7 +47,52 @@ import {
 } from "@/components/ui/alert-dialog";
 import Link from "next/link";
 
-export default function NGOActivityPage() {
+const events = [
+  {
+    id: 1,
+    title: "Beach Cleanup",
+    date: "2023-08-15",
+    location: "Sunny Beach",
+    volunteers: 45,
+    description:
+      "Join us for a day of cleaning up our beautiful beaches and protecting marine life.",
+    images: [
+      "https://source.unsplash.com/random/800x600/?beach,cleanup",
+      "https://source.unsplash.com/random/800x600/?ocean,plastic",
+      "https://source.unsplash.com/random/800x600/?volunteer,beach",
+    ],
+  },
+  {
+    id: 2,
+    title: "Food Drive",
+    date: "2023-08-20",
+    location: "Community Center",
+    volunteers: 30,
+    description:
+      "Help us collect and distribute food to those in need in our community.",
+    images: [
+      "https://source.unsplash.com/random/800x600/?food,donation",
+      "https://source.unsplash.com/random/800x600/?volunteer,foodbank",
+      "https://source.unsplash.com/random/800x600/?community,help",
+    ],
+  },
+  {
+    id: 3,
+    title: "Tree Planting",
+    date: "2023-08-10",
+    location: "City Park",
+    volunteers: 60,
+    description:
+      "Let's make our city greener by planting trees in the local park.",
+    images: [
+      "https://source.unsplash.com/random/800x600/?tree,planting",
+      "https://source.unsplash.com/random/800x600/?forest,sapling",
+      "https://source.unsplash.com/random/800x600/?nature,conservation",
+    ],
+  },
+];
+
+export default function NGOActivitiesPage() {
   const params = useParams();
   const router = useRouter();
   const activityId = params["activity-id"];
@@ -126,14 +173,6 @@ export default function NGOActivityPage() {
   const handleBookmark = () => {
     console.log("Bookmark activity:", activity.id);
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <h2 className="text-2xl font-semibold">Loading...</h2>
-      </div>
-    );
-  }
 
   if (!activity) {
     return (
@@ -219,6 +258,7 @@ export default function NGOActivityPage() {
             </div>
           </CardContent>
         </Card>
+        <PayoutManagement />
       </motion.div>
 
       {/* Edit Dialog */}

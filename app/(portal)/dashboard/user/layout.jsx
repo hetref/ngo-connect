@@ -12,7 +12,8 @@ import {
   User,
   UsersRound,
   IndianRupee,
-  ReceiptIndianRupee
+  ReceiptIndianRupee,
+  Users
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
@@ -29,6 +30,7 @@ const NavConfig = {
     { name: "Volunteered", icon: UsersRound, href: "/dashboard/user/volunteer" },
     { name: "Donations", icon: IndianRupee, href: "/dashboard/user/donations" },
     { name: "Donate", icon: ReceiptIndianRupee, href: "/dashboard/user/donations/donate" },
+    { name: "NGO Membership", icon: Users, href: "/dashboard/user/member" },
   ],
   bottomNavItems: [
     { name: "Profile", icon: User, href: "/dashboard/user/profile" },

@@ -4,6 +4,7 @@ import { motion} from "framer-motion"
 import Link from "next/link"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Calendar, MapPin, Users } from "lucide-react"
+import { MetricsOverview } from "@/components/metrics-overview"
 
 const events = [
   {
@@ -41,7 +42,8 @@ export default function NGOActivitiesPage() {
       className="container mx-auto"
     >
       <h1 className="mb-8 text-3xl font-bold">Activity Management</h1>
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+      <MetricsOverview />
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-10">
         {events.map((event) => (
           <motion.div
             key={event.id}

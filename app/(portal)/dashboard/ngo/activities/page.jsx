@@ -1,10 +1,13 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calendar, MapPin, Users } from "lucide-react";
+import { Calendar, MapPin, Plus, Users } from "lucide-react";
 import { MetricsOverview } from "@/components/metrics-overview";
+import { auth, db } from "@/lib/firebase";
+import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
 
 const events = [
   {
@@ -37,7 +40,7 @@ export default function NGOActivitiesPage() {
   const [activities, setActivities] = useState([]);
   const [loading, setLoading] = useState(true);
   const user = auth.currentUser;
-  const db = getFirestore();
+  // const db = getFirestore();
 
   useEffect(() => {
     // if (!user?.uid) return;
@@ -143,44 +146,54 @@ export default function NGOActivitiesPage() {
       transition={{ duration: 0.5 }}
       className="container mx-auto"
     >
-      <h1 className="mb-8 text-3xl font-bold">Activity Management</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="mb-8 text-3xl font-bold">Activity Management</h1>
+        <Link
+          href="/dashboard/ngo/activities/new"
+          className="flex items-center px-4 py-2 text-sm font-medium text-white bg-[#1CAC78] rounded-md shadow-sm"
+        >
+          Create Activity <Plus className="h-4 w-4" />
+        </Link>
+      </div>
       <MetricsOverview />
+
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mt-10">
-        {events.map((event) => (
-          <motion.div
-            key={activity.id}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            <Link href={`/dashboard/ngo/activities/${activity.id}`}>
-              <Card className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg">
-                <img
-                  src={activity.featuredImageUrl || "/placeholder.svg"}
-                  alt={activity.eventName}
-                  className="h-48 w-full object-cover"
-                />
-                <CardHeader>
-                  <CardTitle>{activity.eventName}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center space-x-2 text-sm text-gray-500">
-                    <Calendar className="h-4 w-4" />
-                    <span>{activity.eventDate}</span>
-                  </div>
-                  <div className="mt-2 flex items-center space-x-2 text-sm text-gray-500">
-                    <MapPin className="h-4 w-4" />
-                    <span>{activity.location}</span>
-                  </div>
-                  <div className="mt-2 flex items-center space-x-2 text-sm text-gray-500">
-                    <Users className="h-4 w-4" />
-                    <span>{activity.coordinator}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </Link>
-          </motion.div>
-        ))}
+        {activities &&
+          activities.map((activity) => (
+            <motion.div
+              key={activity.id}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <Link href={`/dashboard/ngo/activities/${activity.id}`}>
+                <Card className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg">
+                  <img
+                    src={activity.featuredImageUrl || "/placeholder.svg"}
+                    alt={activity.eventName}
+                    className="h-48 w-full object-cover"
+                  />
+                  <CardHeader>
+                    <CardTitle>{activity.eventName}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center space-x-2 text-sm text-gray-500">
+                      <Calendar className="h-4 w-4" />
+                      <span>{activity.eventDate}</span>
+                    </div>
+                    <div className="mt-2 flex items-center space-x-2 text-sm text-gray-500">
+                      <MapPin className="h-4 w-4" />
+                      <span>{activity.location}</span>
+                    </div>
+                    <div className="mt-2 flex items-center space-x-2 text-sm text-gray-500">
+                      <Users className="h-4 w-4" />
+                      <span>{activity.coordinator}</span>
+                    </div>
+                  </CardContent>
+                </Card>
+              </Link>
+            </motion.div>
+          ))}
       </div>
     </motion.div>
   );

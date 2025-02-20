@@ -21,11 +21,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 
 export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
-  const [selectedItem, setSelectedItem] = useState("Dashboard");
   const [isMobile, setIsMobile] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768);
@@ -52,13 +52,12 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
             href={item.href}
             className={cn(
               "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200",
-              selectedItem === item.name
+              pathname === item.href
                 ? "bg-[#1CAC78] text-white"
                 : "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
               !isOpen && "justify-center"
             )}
             onClick={() => {
-              setSelectedItem(item.name);
               if (isMobile) setIsOpen(false);
             }}
           >
@@ -142,7 +141,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
           <button
             className={cn(
               "flex items-center rounded-lg p-2 text-gray-700 transition-colors duration-200 w-full",
-              selectedItem === "Logout"
+              pathname === "/logout"
                 ? "bg-[#1CAC78] text-white"
                 : "hover:bg-[#1CAC78] hover:bg-opacity-10 hover:text-[#1CAC78]",
               !isOpen && "justify-center"

@@ -8,6 +8,7 @@ import { Calendar, MapPin, Plus, Users } from "lucide-react";
 import { MetricsOverview } from "@/components/metrics-overview";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
+import Image from 'next/image';
 
 const events = [
   {
@@ -168,11 +169,15 @@ export default function NGOActivitiesPage() {
             >
               <Link href={`/dashboard/ngo/activities/${activity.id}`}>
                 <Card className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg">
-                  <img
-                    src={activity.featuredImageUrl || "/placeholder.svg"}
-                    alt={activity.eventName}
-                    className="h-48 w-full object-cover"
-                  />
+                  <div className="relative h-48">
+                    <Image
+                      src={activity.featuredImageUrl || "/placeholder.svg"}
+                      alt={activity.eventName}
+                      layout="fill"
+                      objectFit="contain"
+                      className="absolute inset-0"
+                    />
+                  </div>
                   <CardHeader>
                     <CardTitle>{activity.eventName}</CardTitle>
                   </CardHeader>

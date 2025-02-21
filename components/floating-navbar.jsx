@@ -98,6 +98,18 @@ export default function FloatingNavbar({ className }) {
               </NavigationMenuLink>
             </NavigationMenuItem>
             <NavigationMenuItem>
+              <NavigationMenuLink
+                className={navigationMenuTriggerStyle()}
+                href="/ngo"
+                style={{
+                  backgroundColor: "transparent",
+                  color: theme === "dark" ? "white" : "black",
+                }}
+              >
+                NGO
+              </NavigationMenuLink>
+            </NavigationMenuItem>
+            <NavigationMenuItem>
               <Button
                 variant="ghost"
                 size="icon"

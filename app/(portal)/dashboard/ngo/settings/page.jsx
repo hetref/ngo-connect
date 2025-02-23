@@ -146,7 +146,7 @@ const NGOSettingsPage = () => {
         </TabsContent> */}
 
         <TabsContent value="donations">
-          <DonationInformation />
+          <DonationInformation ngoId={userId} />
         </TabsContent>
 
         <TabsContent value="notifications">

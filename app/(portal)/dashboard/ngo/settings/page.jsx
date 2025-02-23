@@ -1,17 +1,16 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Moon, Sun } from "lucide-react";
 import ProfileInformation from "@/components/profile/ngo/ProfileInformation";
 import VerificationInformation from "@/components/profile/ngo/VerificationInformation";
 import DonationInformation from "@/components/profile/ngo/DonationInformation";
 import NotificationInformation from "@/components/profile/ngo/NotificationInformation";
 import SecurityInformation from "@/components/profile/ngo/SecurityInformation";
+import { auth } from "@/lib/firebase";
 
 const NGOSettingsPage = () => {
+  const userId = auth.currentUser.uid;
   // const [darkMode, setDarkMode] = useState(false);
 
   // Effect to handle dark mode
@@ -58,11 +57,11 @@ const NGOSettingsPage = () => {
         </TabsList>
 
         <TabsContent value="profile">
-          <ProfileInformation />
+          <ProfileInformation userId={userId} />
         </TabsContent>
 
         <TabsContent value="verification">
-          <VerificationInformation />
+          <VerificationInformation ngoId={userId} />
         </TabsContent>
 
         {/* <TabsContent value="team">

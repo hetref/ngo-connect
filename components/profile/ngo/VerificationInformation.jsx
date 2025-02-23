@@ -27,8 +27,8 @@ const VerificationInformation = ({ ngoId }) => {
     { name: "12A Certificate", required: true },
     { name: "80G Certificate", required: true },
     { name: "PAN Card of NGO", required: true },
-    { name: "Trust Deed / MOA", required: true },
-    { name: "Director/Trustee Aadhaar & PAN", required: true },
+    { name: "Trust Deed or MOA", required: true },
+    { name: "Director or Trustee Aadhaar & PAN", required: true },
     { name: "FCRA Certificate", required: false },
     { name: "GST Certificate", required: false },
     { name: "Annual Reports & Financials", required: false },
@@ -93,18 +93,31 @@ const VerificationInformation = ({ ngoId }) => {
         <CardTitle>Verification & Compliance</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        {documentTypes.map((type) => (
-          <div key={type.name} className="space-y-2">
-            <Label>{type.name}</Label>
-            <div className="flex items-center space-x-2">
-              {documents[type.name] ? (
-                <>
-                  <Button
-                    variant="outline"
-                    onClick={() => window.open(documents[type.name], "_blank")}
-                  >
-                    View
-                  </Button>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-6">
+          {documentTypes.map((type) => (
+            <div key={type.name} className="space-y-2">
+              <Label>{type.name}</Label>
+              <div className="flex items-center space-x-2">
+                {documents[type.name] ? (
+                  <>
+                    <Button
+                      // variant="outline"
+                      onClick={() =>
+                        window.open(documents[type.name], "_blank")
+                      }
+                    >
+                      View
+                    </Button>
+                    <Input
+                      type="file"
+                      className="border-gray-300"
+                      accept=".pdf"
+                      onChange={(e) =>
+                        handleFileChange(type.name, e.target.files[0])
+                      }
+                    />
+                  </>
+                ) : (
                   <Input
                     type="file"
                     className="border-gray-300"
@@ -113,37 +126,28 @@ const VerificationInformation = ({ ngoId }) => {
                       handleFileChange(type.name, e.target.files[0])
                     }
                   />
-                </>
-              ) : (
-                <Input
-                  type="file"
-                  className="border-gray-300"
-                  accept=".pdf"
-                  onChange={(e) =>
-                    handleFileChange(type.name, e.target.files[0])
-                  }
-                />
-              )}
+                )}
+              </div>
             </div>
+          ))}
+          <div className="space-y-2">
+            <Label>Government Recognition Status</Label>
+            <Select
+              className="border-gray-300"
+              value={status}
+              onValueChange={setStatus}
+              required
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="recognized">Recognized</SelectItem>
+                <SelectItem value="pending">Pending</SelectItem>
+                <SelectItem value="not-applicable">Not Applicable</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        ))}
-        <div className="space-y-2">
-          <Label>Government Recognition Status</Label>
-          <Select
-            className="border-gray-300"
-            value={status}
-            onValueChange={setStatus}
-            required
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="recognized">Recognized</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
-              <SelectItem value="not-applicable">Not Applicable</SelectItem>
-            </SelectContent>
-          </Select>
         </div>
         <Button
           className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]"

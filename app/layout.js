@@ -4,6 +4,7 @@ import { ThemeProvider } from "@/components/theme-provider"
 import FloatingNavbar from "@/components/floating-navbar";
 import { cn } from "@/lib/utils";
 import { Footer } from "@/components/footer";
+import Script from "next/script";
 
 export const metadata = {
   title: "NGO-Connect",
@@ -29,6 +30,10 @@ export default function RootLayout({ children }) {
           </div>
         </ThemeProvider>
         <Toaster />
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="beforeInteractive"
+        />
       </body>
     </html>
   );

@@ -40,10 +40,10 @@ export default function Home() {
                   Get Started
                 </Link>
                 <Link
-                  href="/about"
+                  href="/ngo"
                   className="px-6 py-3 border border-border rounded-lg hover:bg-accent transition-colors"
                 >
-                  Learn More
+                  Explore NGOs
                 </Link>
               </div>
             </div>
@@ -59,7 +59,7 @@ export default function Home() {
               <div className="absolute left-0 top-1/2 h-[1px] w-20 bg-gradient-to-r from-purple-500/0 via-purple-500/70 to-purple-500/0"></div>
               <div className="absolute right-0 top-1/2 h-[1px] w-20 bg-gradient-to-l from-purple-500/0 via-purple-500/70 to-purple-500/0"></div>
             </div>
-            
+
             {/* Button with spinning border */}
             <button className="relative inline-flex h-9 w-48 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50">
               <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)] opacity-100" />
@@ -78,7 +78,7 @@ export default function Home() {
               <div className="absolute left-0 top-1/2 h-[1px] w-20 bg-gradient-to-r from-purple-500/0 via-purple-500/70 to-purple-500/0"></div>
               <div className="absolute right-0 top-1/2 h-[1px] w-20 bg-gradient-to-l from-purple-500/0 via-purple-500/70 to-purple-500/0"></div>
             </div>
-            
+
             {/* Button with spinning border */}
             <button className="relative inline-flex h-9 w-48 overflow-hidden rounded-full p-[2px] focus:outline-none focus:ring-2 focus:ring-slate-400 focus:ring-offset-2 focus:ring-offset-slate-50">
               <span className="absolute inset-[-1000%] animate-[spin_2s_linear_infinite] bg-[conic-gradient(from_90deg_at_50%_50%,#E2CBFF_0%,#393BB2_50%,#E2CBFF_100%)] opacity-100" />

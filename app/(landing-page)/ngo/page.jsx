@@ -4,8 +4,17 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MapPin, Plus, Users, Globe, Search, Filter, Wallet, Phone } from "lucide-react";
-import Image from 'next/image';
+import {
+  MapPin,
+  Plus,
+  Users,
+  Globe,
+  Search,
+  Filter,
+  Wallet,
+  Phone,
+} from "lucide-react";
+import Image from "next/image";
 import { auth, db } from "@/lib/firebase";
 import { collection, getDocs } from "firebase/firestore";
 import {
@@ -32,7 +41,7 @@ const NGO_CATEGORIES = [
   "Animal Welfare",
   "Humanitarian",
   "Arts & Culture",
-  "All"
+  "All",
 ];
 
 const NGOListPage = () => {
@@ -45,19 +54,17 @@ const NGOListPage = () => {
   useEffect(() => {
     const fetchNGOs = async () => {
       try {
-        const ngoSnapshot = await getDocs(collection(db, "users"));
+        const ngoSnapshot = await getDocs(collection(db, "ngo"));
         const ngoList = [];
-        
+
         ngoSnapshot.forEach((doc) => {
           const data = doc.data();
-          if (data.role === "admin") {
-            ngoList.push({
-              id: doc.id,
-              ...data
-            });
-          }
+          ngoList.push({
+            id: doc.id,
+            ...data,
+          });
         });
-        
+
         setNgos(ngoList);
         setLoading(false);
       } catch (error) {
@@ -69,9 +76,12 @@ const NGOListPage = () => {
     fetchNGOs();
   }, []);
 
-  const filteredNGOs = ngos.filter(ngo => {
-    const matchesSearch = ngo.name?.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesCategory = selectedCategory === "All" || ngo.category === selectedCategory;
+  const filteredNGOs = ngos.filter((ngo) => {
+    const matchesSearch = ngo.name
+      ?.toLowerCase()
+      .includes(searchQuery.toLowerCase());
+    const matchesCategory =
+      selectedCategory === "All" || ngo.category === selectedCategory;
     return matchesSearch && matchesCategory;
   });
 
@@ -80,7 +90,11 @@ const NGOListPage = () => {
   };
 
   if (loading) {
-    return <div className="container mx-auto">Loading...</div>;
+    return (
+      <div className=" min-h-[calc(100vh-100px)] flex justify-center items-center font-semibold text-2xl">
+        Loading...
+      </div>
+    );
   }
 
   return (
@@ -118,9 +132,7 @@ const NGOListPage = () => {
           </div>
           <Dialog>
             <DialogTrigger asChild>
-              <Button 
-                className="flex items-center gap-2 bg-[#1CAC78] hover:bg-[#158f64] text-white"
-              >
+              <Button className="flex items-center gap-2 bg-[#1CAC78] hover:bg-[#158f64] text-white">
                 <Filter className="h-5 w-5" />
                 Filter by Category
               </Button>
@@ -136,12 +148,14 @@ const NGOListPage = () => {
                 {NGO_CATEGORIES.map((category) => (
                   <Button
                     key={category}
-                    variant={selectedCategory === category ? "default" : "outline"}
+                    variant={
+                      selectedCategory === category ? "default" : "outline"
+                    }
                     onClick={() => {
                       setSelectedCategory(category);
                       setShowFilters(false);
                     }}
-                    className={`w-full ${selectedCategory === category ? 'bg-[#1CAC78] hover:bg-[#158f64]' : ''}`}
+                    className={`w-full ${selectedCategory === category ? "bg-[#1CAC78] hover:bg-[#158f64]" : ""}`}
                   >
                     {category}
                   </Button>
@@ -162,7 +176,7 @@ const NGOListPage = () => {
               <Card className="overflow-hidden transition-all duration-300 hover:shadow-xl transform hover:-translate-y-1 hover:scale-[1.02] bg-white">
                 <div className="relative h-48">
                   <Image
-                    src={ngo.logoUrl || "/api/placeholder/400/300"}
+                    src={ngo?.logoUrl || "/api/placeholder/400/300"}
                     alt={ngo.ngoName}
                     layout="fill"
                     objectFit="contain"
@@ -171,9 +185,7 @@ const NGOListPage = () => {
                 </div>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
-                    <Link href={`/dashboard/ngo/${ngo.id}`}>
-                      {ngo.ngoName}
-                    </Link>
+                    <Link href={`/ngo/${ngo.id}`}>{ngo.ngoName}</Link>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm">
@@ -182,13 +194,19 @@ const NGOListPage = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent>
-                        <DropdownMenuItem onClick={() => handleDonate('money', ngo.id)}>
+                        <DropdownMenuItem
+                          onClick={() => handleDonate("money", ngo.id)}
+                        >
                           Donate Money
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDonate('resources', ngo.id)}>
+                        <DropdownMenuItem
+                          onClick={() => handleDonate("resources", ngo.id)}
+                        >
                           Donate Resources
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDonate('ethereum', ngo.id)}>
+                        <DropdownMenuItem
+                          onClick={() => handleDonate("ethereum", ngo.id)}
+                        >
                           Donate via Ethereum
                         </DropdownMenuItem>
                       </DropdownMenuContent>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,13 +23,37 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import NGODetails from "@/components/ngo/single-ngo/NGODetails";
+import NGOActivities from "@/components/ngo/single-ngo/NGOActivities";
+import DonateNowButton from "@/components/ngo/single-ngo/DonateNowButton";
 
 export default function SingleNGOPage() {
   const params = useParams();
   const ngoId = params["ngo-id"];
   const [ngo, setNgo] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+  const ngoData = {
+    logo: "/placeholder.svg?height=600&width=600",
+    name: "Example NGO",
+    ownerName: "John Doe",
+    registrationNumber: "REG123456",
+    description:
+      "We are dedicated to making a positive impact in our community.",
+    mission: "To empower individuals and create sustainable change.",
+    vision: "A world where everyone has equal opportunities to thrive.",
+    website: "https://www.examplengo.org",
+    email: "contact@examplengo.org",
+    address: "123 Main St, City",
+    state: "State",
+    district: "District",
+    socialMedia: {
+      facebook: "https://facebook.com/examplengo",
+      instagram: "https://instagram.com/examplengo",
+      twitter: "https://twitter.com/examplengo",
+      linkedin: "https://linkedin.com/company/examplengo",
+    },
+  };
 
   // Modal states
   const [showMoneyModal, setShowMoneyModal] = useState(false);
@@ -38,15 +62,19 @@ export default function SingleNGOPage() {
   const [ethAmount, setEthAmount] = useState("");
   const [rupeeEquivalent, setRupeeEquivalent] = useState(0);
   const [ethPrice, setEthPrice] = useState(0);
+  const [activeTab, setActiveTab] = useState("Details");
+
+  const tabs = ["Details", "Activities"];
 
   useEffect(() => {
     async function fetchNGO() {
       if (!ngoId) return;
       try {
-        const docRef = doc(db, "users", ngoId);
+        const docRef = doc(db, "ngo", ngoId);
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setNgo(docSnap.data());
+          console.log("NGODATA", docSnap.data());
         } else {
           setNgo(null);
         }
@@ -58,7 +86,6 @@ export default function SingleNGOPage() {
     }
     fetchNGO();
   }, [ngoId]);
-
 
   useEffect(() => {
     async function fetchEthPrice() {
@@ -126,22 +153,11 @@ export default function SingleNGOPage() {
 
   const handleEthDonation = async () => {
     // Implement Ethereum payment integration here
-    console.log(`Processing donation of ${ethAmount} ETH (₹${rupeeEquivalent.toLocaleString('en-IN', { maximumFractionDigits: 2 })})`);
+    console.log(
+      `Processing donation of ${ethAmount} ETH (₹${rupeeEquivalent.toLocaleString("en-IN", { maximumFractionDigits: 2 })})`
+    );
     setEthAmount("");
     setShowEthModal(false);
-  };
-
-  const nextImage = () => {
-    setCurrentImageIndex(
-      (prevIndex) => (prevIndex + 1) % (ngo.images?.length || 1)
-    );
-  };
-
-  const prevImage = () => {
-    setCurrentImageIndex(
-      (prevIndex) =>
-        (prevIndex - 1 + (ngo.images?.length || 1)) % (ngo.images?.length || 1)
-    );
   };
 
   return (
@@ -152,26 +168,26 @@ export default function SingleNGOPage() {
         transition={{ duration: 0.5 }}
         className="container mx-auto py-8"
       >
-        <Card className="overflow-hidden relative bg-white shadow-lg">
-          <div className="relative h-96">
+        <Card className="bg-white shadow-lg">
+          <div className="h-96">
             <img
               src={ngo.logoUrl || "/api/placeholder/1200/800"}
               alt={ngo.ngoName}
-              className="h-full w-full object-cover"
+              className="h-full w-full object-contain"
             />
-            <div className="absolute bottom-4 right-4 space-x-2">
+            {/* <div className="absolute bottom-4 right-4 space-x-2">
               <Button variant="secondary" size="sm" onClick={prevImage}>
                 Previous
               </Button>
               <Button variant="secondary" size="sm" onClick={nextImage}>
                 Next
               </Button>
-            </div>
+            </div> */}
           </div>
           <CardHeader className="border-b">
             <div className="flex justify-between items-center">
               <CardTitle className="text-3xl">{ngo?.ngoName}</CardTitle>
-              <DropdownMenu>
+              {/* <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button className="bg-[#1CAC78] hover:bg-[#158f64]">
                     <Wallet className="h-4 w-4 mr-2" />
@@ -179,72 +195,53 @@ export default function SingleNGOPage() {
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleDonate('money')}>
+                  <DropdownMenuItem onClick={() => handleDonate("money")}>
                     Donate Money
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDonate('resources')}>
+                  <DropdownMenuItem onClick={() => handleDonate("resources")}>
                     Donate Resources
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDonate('ethereum')}>
+                  <DropdownMenuItem onClick={() => handleDonate("ethereum")}>
                     Donate via Ethereum
                   </DropdownMenuItem>
                 </DropdownMenuContent>
-              </DropdownMenu>
+              </DropdownMenu> */}
+              <DonateNowButton ngoData={ngo} />
             </div>
           </CardHeader>
           <CardContent>
-            <div className="mb-6 grid grid-cols-2 gap-4 text-gray-500">
-              <div className="flex items-center space-x-2">
-                <Globe className="h-5 w-5" />
-                <span>{ngo.category || "General"}</span>
+            <div className="container mx-auto px-4 py-16">
+              <div className="flex justify-center mb-8">
+                {tabs.map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`px-4 py-2 mx-2 rounded-full transition-colors ${
+                      activeTab === tab
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
               </div>
-              <div className="flex items-center space-x-2">
-                <MapPin className="h-5 w-5" />
-                <span>{ngo.location}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Mail className="h-5 w-5" />
-                <span>{ngo.email}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Phone className="h-5 w-5" />
-                <span>{ngo.phone}</span>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Users className="h-5 w-5" />
-                <span>{ngo.memberCount || 0} members</span>
-              </div>
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={activeTab}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {activeTab === "Details" && (
+                    <NGODetails ngo={ngo} ngoId={ngoId} />
+                  )}
+                  {activeTab === "Activities" && <NGOActivities />}
+                </motion.div>
+              </AnimatePresence>
             </div>
-
-            <div className="space-y-6">
-              <div>
-                <h3 className="text-xl font-semibold mb-2">About Us</h3>
-                <p className="text-gray-700">{ngo.description || "No description available."}</p>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Our Mission</h3>
-                <p className="text-gray-700">{ngo.mission || "Mission statement not available."}</p>
-              </div>
-
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Impact</h3>
-                <p className="text-gray-700">{ngo.impact || "Impact statement not available."}</p>
-              </div>
-            </div>
-
-            <div className="mt-8 flex space-x-4">
-              <Button asChild className="bg-[#1CAC78] hover:bg-[#158f64]">
-                <a href={`/volunteer/${ngoId}`}>
-                  Become a Volunteer
-                </a>
-              </Button>
-              <Button variant="outline" asChild>
-                <a href={`/contact/${ngoId}`}>
-                  Contact Us
-                </a>
-              </Button>
-            </div>
+            {/*  */}
           </CardContent>
         </Card>
       </motion.div>
@@ -287,45 +284,48 @@ export default function SingleNGOPage() {
 
       {/* Ethereum Donation Modal */}
       <Dialog open={showEthModal} onOpenChange={setShowEthModal}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Donate via Ethereum</DialogTitle>
-              <DialogDescription>
-                Enter the amount of ETH you would like to donate
-              </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-              <div className="grid gap-2">
-                <Label htmlFor="eth-amount">Amount (in ETH)</Label>
-                <Input
-                  id="eth-amount"
-                  type="number"
-                  value={ethAmount}
-                  onChange={(e) => setEthAmount(e.target.value)}
-                  placeholder="Enter ETH amount"
-                  className="col-span-3"
-                />
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Donate via Ethereum</DialogTitle>
+            <DialogDescription>
+              Enter the amount of ETH you would like to donate
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="eth-amount">Amount (in ETH)</Label>
+              <Input
+                id="eth-amount"
+                type="number"
+                value={ethAmount}
+                onChange={(e) => setEthAmount(e.target.value)}
+                placeholder="Enter ETH amount"
+                className="col-span-3"
+              />
+            </div>
+            {ethAmount && (
+              <div className="text-sm text-gray-500">
+                Equivalent amount: ₹
+                {rupeeEquivalent.toLocaleString("en-IN", {
+                  maximumFractionDigits: 2,
+                })}
               </div>
-              {ethAmount && (
-                <div className="text-sm text-gray-500">
-                  Equivalent amount: ₹{rupeeEquivalent.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                </div>
-              )}
-            </div>
-            <div className="flex justify-end gap-4">
-              <Button variant="outline" onClick={() => setShowEthModal(false)}>
-                Cancel
-              </Button>
-              <Button
-                className="bg-[#1CAC78] hover:bg-[#158f64]"
-                onClick={handleEthDonation}
-                disabled={!ethAmount || parseFloat(ethAmount) <= 0}
-              >
-                Pay with ETH
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            )}
+          </div>
+          <div className="flex justify-end gap-4">
+            <Button variant="outline" onClick={() => setShowEthModal(false)}>
+              Cancel
+            </Button>
+            <Button
+              className="bg-[#1CAC78] hover:bg-[#158f64]"
+              onClick={handleEthDonation}
+              disabled={!ethAmount || parseFloat(ethAmount) <= 0}
+            >
+              Pay with ETH
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

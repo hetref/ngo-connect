@@ -17,6 +17,7 @@ import { useTheme } from "next-themes";
 import Link from "next/link";
 import Image from "next/image";
 import logoRect from "@/assets/logo/rectangle-logo.png";
+import { auth } from "@/lib/firebase";
 
 export default function FloatingNavbar({ className }) {
   const { setTheme, theme } = useTheme();
@@ -127,23 +128,34 @@ export default function FloatingNavbar({ className }) {
       </nav>
 
       <div className="fixed top-4 right-4 z-50 flex gap-4">
-        <Link
-          href="/register"
-          className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
-        >
-          Sign Up
-        </Link>
-        <Link
-          href="/login"
-          className={cn(
-            "px-6 py-2 rounded-full font-medium transition-colors",
-            "border-2 border-foreground/20",
-            "text-foreground",
-            "hover:bg-foreground/10"
-          )}
-        >
-          Sign In
-        </Link>
+        {auth?.currentUser?.uid ? (
+          <Link
+            href="/dashboard"
+            className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+          >
+            Dashboard
+          </Link>
+        ) : (
+          <>
+            <Link
+              href="/register"
+              className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+            >
+              Sign Up
+            </Link>
+            <Link
+              href="/login"
+              className={cn(
+                "px-6 py-2 rounded-full font-medium transition-colors",
+                "border-2 border-foreground/20",
+                "text-foreground",
+                "hover:bg-foreground/10"
+              )}
+            >
+              Sign In
+            </Link>
+          </>
+        )}
       </div>
     </>
   );

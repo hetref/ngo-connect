@@ -45,6 +45,8 @@ const NGOSettingsPage = () => {
         </Button> */}
       </div>
 
+      {/* Add Awards & Recognitions Tab where the NGO can add the Awards and Recognition they received */}
+
       <Tabs defaultValue="profile" className="space-y-4">
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>

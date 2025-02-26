@@ -15,45 +15,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import NGODetails from "@/components/ngo/single-ngo/NGODetails";
 import NGOActivities from "@/components/ngo/single-ngo/NGOActivities";
-import DonateNowButton from "@/components/ngo/single-ngo/DonateNowButton";
+import DonateNow from "@/components/ngo/single-ngo/DonateNow";
 
 export default function SingleNGOPage() {
   const params = useParams();
   const ngoId = params["ngo-id"];
   const [ngo, setNgo] = useState(null);
   const [loading, setLoading] = useState(true);
-
-  const ngoData = {
-    logo: "/placeholder.svg?height=600&width=600",
-    name: "Example NGO",
-    ownerName: "John Doe",
-    registrationNumber: "REG123456",
-    description:
-      "We are dedicated to making a positive impact in our community.",
-    mission: "To empower individuals and create sustainable change.",
-    vision: "A world where everyone has equal opportunities to thrive.",
-    website: "https://www.examplengo.org",
-    email: "contact@examplengo.org",
-    address: "123 Main St, City",
-    state: "State",
-    district: "District",
-    socialMedia: {
-      facebook: "https://facebook.com/examplengo",
-      instagram: "https://instagram.com/examplengo",
-      twitter: "https://twitter.com/examplengo",
-      linkedin: "https://linkedin.com/company/examplengo",
-    },
-  };
 
   // Modal states
   const [showMoneyModal, setShowMoneyModal] = useState(false);
@@ -64,7 +36,7 @@ export default function SingleNGOPage() {
   const [ethPrice, setEthPrice] = useState(0);
   const [activeTab, setActiveTab] = useState("Details");
 
-  const tabs = ["Details", "Activities"];
+  const tabs = ["Details", "Activities", "Donate"];
 
   useEffect(() => {
     async function fetchNGO() {
@@ -206,7 +178,7 @@ export default function SingleNGOPage() {
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu> */}
-              <DonateNowButton ngoData={ngo} />
+              {/* <DonateNowButton ngoData={ngo} /> */}
             </div>
           </CardHeader>
           <CardContent>
@@ -238,6 +210,7 @@ export default function SingleNGOPage() {
                     <NGODetails ngo={ngo} ngoId={ngoId} />
                   )}
                   {activeTab === "Activities" && <NGOActivities />}
+                  {activeTab === "Donate" && <DonateNow ngoData={ngo} />}
                 </motion.div>
               </AnimatePresence>
             </div>
@@ -246,7 +219,7 @@ export default function SingleNGOPage() {
         </Card>
       </motion.div>
 
-      <Dialog open={showMoneyModal} onOpenChange={setShowMoneyModal}>
+      {/* <Dialog open={showMoneyModal} onOpenChange={setShowMoneyModal}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle>Donate Money</DialogTitle>
@@ -282,7 +255,6 @@ export default function SingleNGOPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Ethereum Donation Modal */}
       <Dialog open={showEthModal} onOpenChange={setShowEthModal}>
         <DialogContent className="sm:max-w-[425px]">
           <DialogHeader>
@@ -325,7 +297,7 @@ export default function SingleNGOPage() {
             </Button>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog> */}
     </>
   );
 }

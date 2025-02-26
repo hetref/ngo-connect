@@ -17,7 +17,11 @@ import { getFirestore, doc, getDoc, updateDoc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db, storage } from "@/lib/firebase";
 
-const VerificationInformation = ({ ngoId }) => {
+const VerificationInformation = ({
+  ngoId,
+  approvalStatus,
+  verificationStatus,
+}) => {
   const [documents, setDocuments] = useState({});
   const [files, setFiles] = useState({});
   const [status, setStatus] = useState("");
@@ -87,6 +91,13 @@ const VerificationInformation = ({ ngoId }) => {
     );
   };
 
+  const shouldDisableInputs =
+    (verificationStatus === "verified" && approvalStatus === "verified") ||
+    (verificationStatus === "pending" && approvalStatus === "pending");
+
+  const pendingTitle =
+    "You cannot update the profile while the verification is in progress";
+
   return (
     <Card>
       <CardHeader>
@@ -101,7 +112,6 @@ const VerificationInformation = ({ ngoId }) => {
                 {documents[type.name] ? (
                   <>
                     <Button
-                      // variant="outline"
                       onClick={() =>
                         window.open(documents[type.name], "_blank")
                       }
@@ -115,6 +125,8 @@ const VerificationInformation = ({ ngoId }) => {
                       onChange={(e) =>
                         handleFileChange(type.name, e.target.files[0])
                       }
+                      disabled={shouldDisableInputs}
+                      title={shouldDisableInputs ? pendingTitle : ""}
                     />
                   </>
                 ) : (
@@ -125,6 +137,8 @@ const VerificationInformation = ({ ngoId }) => {
                     onChange={(e) =>
                       handleFileChange(type.name, e.target.files[0])
                     }
+                    disabled={shouldDisableInputs}
+                    title={shouldDisableInputs ? pendingTitle : ""}
                   />
                 )}
               </div>
@@ -137,6 +151,8 @@ const VerificationInformation = ({ ngoId }) => {
               value={status}
               onValueChange={setStatus}
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select status" />
@@ -152,7 +168,8 @@ const VerificationInformation = ({ ngoId }) => {
         <Button
           className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]"
           onClick={handleUpload}
-          disabled={!isAllRequiredDocumentsUploaded()}
+          disabled={!isAllRequiredDocumentsUploaded() || shouldDisableInputs}
+          title={shouldDisableInputs ? pendingTitle : ""}
         >
           Update Verification Documents
         </Button>

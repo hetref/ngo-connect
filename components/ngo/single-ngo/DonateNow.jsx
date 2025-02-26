@@ -1,13 +1,7 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +11,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  doc,
-  getDoc,
-  setDoc,
-  Timestamp,
-  updateDoc,
-  increment,
-} from "firebase/firestore";
+import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendWhatsappMessage } from "@/lib/whatsappMessages";
 
@@ -73,21 +60,21 @@ const DonateNow = ({ ngoData }) => {
     fetchUserData();
   }, []);
 
-  const isOnlineFormValid = useCallback(() => {
+  const isOnlineFormValid = useMemo(() => {
     return Object.values(onlineFormData).every((value) =>
       typeof value === "boolean" ? true : value.trim() !== ""
     );
   }, [onlineFormData]);
 
-  const handleOnlineInputChange = (e) => {
+  const handleOnlineInputChange = useCallback((e) => {
     const { name, value, type, checked } = e.target;
     setOnlineFormData((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? checked : value,
     }));
-  };
+  }, []);
 
-  const handlePayment = async () => {
+  const handlePayment = useCallback(async () => {
     try {
       const response = await fetch("/api/create-donation", {
         method: "POST",
@@ -127,79 +114,103 @@ const DonateNow = ({ ngoData }) => {
     } catch (error) {
       console.error("Error during payment:", error);
     }
-  };
+  }, [onlineFormData, ngoData]);
 
-  const saveDonationData = async (paymentResponse) => {
-    try {
-      const donationData = {
-        ...onlineFormData,
-        paymentId: paymentResponse.razorpay_payment_id,
-        orderId: paymentResponse.razorpay_order_id,
-        signature: paymentResponse.razorpay_signature,
-      };
-      await sendWhatsappMessage(
-        donationData.name,
-        ngoData.ngoName,
-        new Date().toISOString(),
-        donationData.email,
-        donationData.phone,
-        donationData.amount
-      );
-      await fetch("http://localhost:3000/api/send-sms", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          to: donationData.phone,
-          body: `Hello ${donationData.name}, thank you for your donation to ${ngoData.ngoName}. Donation Amount - ₹${donationData.amount}`,
-        }),
-      });
-      const docRef = doc(
-        db,
-        "donations",
-        ngoData.ngoId,
-        new Date().getFullYear().toString(),
-        auth.currentUser.uid,
-        "online",
-        new Date().toISOString()
-      );
-      await setDoc(docRef, donationData, { merge: true }).then(() => {
-        console.log("Donation Data Saved");
-      });
-      const userDocRef = doc(db, "users", auth.currentUser.uid);
-      await updateDoc(userDocRef, {
-        totalDonated: increment(parseFloat(donationData.amount)),
-      }).then(() => {
-        console.log("User Total Donated Updated for use");
-      });
-      const ngoDocRef = doc(db, "ngo", ngoData.ngoId);
-      await updateDoc(ngoDocRef, {
-        totalDonations: increment(parseFloat(donationData.amount)),
-      }).then(() => {
-        console.log("NGO Total Donations Updated");
-      });
-      const donatedToDocRef = doc(
-        db,
-        "users",
-        auth.currentUser.uid,
-        "donatedTo",
-        ngoData.ngoId
-      );
-      await setDoc(
-        donatedToDocRef,
-        {
-          amount: increment(parseFloat(donationData.amount)),
-          timestamp: new Date().toISOString(),
-        },
-        { merge: true }
-      ).then(() => {
-        console.log("Donation Data Saved for User added donatedTo");
-      });
-    } catch (error) {
-      console.error("Error saving donation data:", error);
-    }
-  };
+  const saveDonationData = useCallback(
+    async (paymentResponse) => {
+      try {
+        const donationData = {
+          ...onlineFormData,
+          paymentId: paymentResponse.razorpay_payment_id,
+          orderId: paymentResponse.razorpay_order_id,
+          signature: paymentResponse.razorpay_signature,
+        };
+        await sendWhatsappMessage(
+          donationData.name,
+          ngoData.ngoName,
+          new Date().toISOString(),
+          donationData.email,
+          donationData.phone,
+          donationData.amount
+        );
+        await fetch("http://localhost:3000/api/send-sms", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            to: donationData.phone,
+            body: `Hello ${donationData.name}, thank you for your donation to ${ngoData.ngoName}. Donation Amount - ₹${donationData.amount}`,
+          }),
+        });
+        const docRef = doc(
+          db,
+          "donations",
+          ngoData.ngoId,
+          new Date().getFullYear().toString(),
+          auth.currentUser.uid,
+          "online",
+          new Date().toISOString()
+        );
+        await setDoc(docRef, donationData, { merge: true }).then(() => {
+          console.log("Donation Data Saved");
+        });
+        const userDocRef = doc(db, "users", auth.currentUser.uid);
+        await updateDoc(userDocRef, {
+          totalDonated: increment(parseFloat(donationData.amount)),
+        }).then(() => {
+          console.log("User Total Donated Updated for use");
+        });
+        const ngoDocRef = doc(db, "ngo", ngoData.ngoId);
+        await updateDoc(ngoDocRef, {
+          totalDonations: increment(parseFloat(donationData.amount)),
+        }).then(() => {
+          console.log("NGO Total Donations Updated");
+        });
+        const donatedToDocRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          "donatedTo",
+          ngoData.ngoId
+        );
+        await setDoc(
+          donatedToDocRef,
+          {
+            amount: increment(parseFloat(donationData.amount)),
+            timestamp: new Date().toISOString(),
+          },
+          { merge: true }
+        ).then(() => {
+          console.log("Donation Data Saved for User added donatedTo");
+        });
+        const userDetailedDonationRef = doc(
+          db,
+          "users",
+          auth.currentUser.uid,
+          new Date().getFullYear().toString(),
+          new Date().getMonth().toString(),
+          ngoData.ngoId,
+          new Date().toISOString()
+        );
+        await setDoc(
+          userDetailedDonationRef,
+          {
+            amount: donationData.amount,
+            name: donationData.name,
+            email: donationData.email,
+            phone: donationData.phone,
+            wantsCertificate: donationData.wantsCertificate,
+            type: "online",
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.error("Error saving donation data:", error);
+      }
+    },
+    [onlineFormData, ngoData]
+  );
 
   return (
     <div className="space-y-6">
@@ -309,7 +320,7 @@ const DonateNow = ({ ngoData }) => {
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={!isOnlineFormValid()}
+                  disabled={!isOnlineFormValid}
                   onClick={handlePayment}
                 >
                   Donate
@@ -470,7 +481,7 @@ const DonateNow = ({ ngoData }) => {
                 <Button
                   type="button"
                   className="w-full"
-                  disabled={!isOnlineFormValid()}
+                  disabled={!isOnlineFormValid}
                   onClick={handlePayment}
                 >
                   Donate

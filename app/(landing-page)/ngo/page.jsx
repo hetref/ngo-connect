@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { auth, db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { collection, onSnapshot } from "firebase/firestore";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -52,28 +52,31 @@ const NGOListPage = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
-    const fetchNGOs = async () => {
-      try {
-        const ngoSnapshot = await getDocs(collection(db, "ngo"));
+    const unsubscribe = onSnapshot(
+      collection(db, "ngo"),
+      (ngoSnapshot) => {
         const ngoList = [];
 
         ngoSnapshot.forEach((doc) => {
           const data = doc.data();
-          ngoList.push({
-            id: doc.id,
-            ...data,
-          });
+          if (data.isVerified === "verified") {
+            ngoList.push({
+              id: doc.id,
+              ...data,
+            });
+          }
         });
 
         setNgos(ngoList);
         setLoading(false);
-      } catch (error) {
+      },
+      (error) => {
         console.error("Error fetching NGOs:", error);
         setLoading(false);
       }
-    };
+    );
 
-    fetchNGOs();
+    return () => unsubscribe();
   }, []);
 
   const filteredNGOs = ngos.filter((ngo) => {

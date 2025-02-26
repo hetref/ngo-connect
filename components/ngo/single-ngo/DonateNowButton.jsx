@@ -22,9 +22,9 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
+import { sendWhatsappMessage } from "@/lib/whatsappMessages";
 
 // TODO: Add the donation as a tab instead of dropdown button.
-
 const DonateNowButton = ({ ngoData }) => {
   const [isOnlineModalOpen, setIsOnlineModalOpen] = useState(false);
   const [isBankModalOpen, setIsBankModalOpen] = useState(false);
@@ -151,6 +151,31 @@ const DonateNowButton = ({ ngoData }) => {
         signature: paymentResponse.razorpay_signature,
       };
       console.log("SAVING DATA", donationData);
+
+      const sendWhatsappMessageResponse = await sendWhatsappMessage(
+        donationData.name,
+        ngoData.ngoName,
+        new Date().toISOString(),
+        donationData.email,
+        donationData.phone,
+        donationData.amount
+      );
+      console.log(
+        "SEND WHATSAPP MESSAGE RESPONSE",
+        sendWhatsappMessageResponse
+      );
+
+      await fetch("http://localhost:3000/api/send-sms", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          to: donationData.phone,
+          body: `Hello ${donationData.name}, thank you for your donation to ${ngoData.ngoName}.
+Donation Amount - ₹${donationData.amount}`,
+        }),
+      });
 
       const docRef = doc(
         db,

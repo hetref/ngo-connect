@@ -26,7 +26,7 @@ import {
 } from "firebase/storage";
 import toast from "react-hot-toast";
 
-const ProfileInformation = ({ userId }) => {
+const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
   const [ngoProfile, setNgoProfile] = useState({
     ngoName: "",
     name: "",
@@ -47,6 +47,13 @@ const ProfileInformation = ({ userId }) => {
     vision: "",
   });
   const [errors, setErrors] = useState({});
+
+  const shouldDisableInputs =
+    (verificationStatus === "verified" && approvalStatus === "verified") ||
+    (verificationStatus === "pending" && approvalStatus === "pending");
+
+  const pendingTitle =
+    "You cannot update the profile while the verification is in progress";
 
   useEffect(() => {
     const docRef = doc(db, "ngo", userId);
@@ -228,6 +235,8 @@ const ProfileInformation = ({ userId }) => {
                 onChange={handleLogoUpload}
                 accept="image/*"
                 className="border-gray-300 hidden"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
             </AvatarFallback>
           </Avatar>
@@ -237,7 +246,8 @@ const ProfileInformation = ({ userId }) => {
               onClick={() =>
                 setNgoProfile({ ...ngoProfile, logoUrl: "", logoFile: null })
               }
-              disabled={!ngoProfile?.logoUrl}
+              disabled={!ngoProfile?.logoUrl || shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             >
               <X className="h-4 w-4" /> Remove
             </Button>
@@ -255,6 +265,8 @@ const ProfileInformation = ({ userId }) => {
               onChange={(e) => handleInputChange("ngoName", e.target.value)}
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.ngoName && <p className="text-red-500">{errors.ngoName}</p>}
           </div>
@@ -266,6 +278,8 @@ const ProfileInformation = ({ userId }) => {
               onChange={(e) => handleInputChange("name", e.target.value)}
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.name && <p className="text-red-500">{errors.name}</p>}
           </div>
@@ -279,6 +293,8 @@ const ProfileInformation = ({ userId }) => {
               }
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.registrationNumber && (
               <p className="text-red-500">{errors.registrationNumber}</p>
@@ -293,6 +309,8 @@ const ProfileInformation = ({ userId }) => {
               className="border-gray-300 resize-none"
               rows={3}
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.description && (
               <p className="text-red-500">{errors.description}</p>
@@ -307,6 +325,8 @@ const ProfileInformation = ({ userId }) => {
               className="border-gray-300 resize-none"
               rows={3}
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.mission && <p className="text-red-500">{errors.mission}</p>}
           </div>
@@ -319,6 +339,8 @@ const ProfileInformation = ({ userId }) => {
               className="border-gray-300 resize-none"
               rows={3}
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.vision && <p className="text-red-500">{errors.vision}</p>}
           </div>
@@ -330,6 +352,8 @@ const ProfileInformation = ({ userId }) => {
               onChange={(e) => handleInputChange("phone", e.target.value)}
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.phone && <p className="text-red-500">{errors.phone}</p>}
           </div>
@@ -342,6 +366,8 @@ const ProfileInformation = ({ userId }) => {
               readOnly
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.email && <p className="text-red-500">{errors.email}</p>}
           </div>
@@ -352,6 +378,8 @@ const ProfileInformation = ({ userId }) => {
               value={ngoProfile?.website || ""}
               onChange={(e) => handleInputChange("website", e.target.value)}
               className="border-gray-300"
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
           </div>
           <div className="space-y-2">
@@ -361,6 +389,8 @@ const ProfileInformation = ({ userId }) => {
               value={ngoProfile?.pan || ""}
               onChange={(e) => handleInputChange("pan", e.target.value)}
               className="border-gray-300"
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.pan && <p className="text-red-500">{errors.pan}</p>}
           </div>
@@ -372,6 +402,8 @@ const ProfileInformation = ({ userId }) => {
                 value={ngoProfile?.address || ""}
                 onChange={(e) => handleInputChange("address", e.target.value)}
                 className="border-gray-300"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               {/* TODO: Add the Set Location using MAP Feature */}
               {/* <Button variant="outline">
@@ -387,6 +419,8 @@ const ProfileInformation = ({ userId }) => {
               onChange={(e) => handleInputChange("state", e.target.value)}
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.state && <p className="text-red-500">{errors.state}</p>}
           </div>
@@ -398,6 +432,8 @@ const ProfileInformation = ({ userId }) => {
               onChange={(e) => handleInputChange("district", e.target.value)}
               className="border-gray-300"
               required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
             />
             {errors.district && (
               <p className="text-red-500">{errors.district}</p>
@@ -413,6 +449,8 @@ const ProfileInformation = ({ userId }) => {
                 value={ngoProfile?.facebook || ""}
                 onChange={(e) => handleInputChange("facebook", e.target.value)}
                 className="border-gray-300"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -421,6 +459,8 @@ const ProfileInformation = ({ userId }) => {
                 value={ngoProfile?.twitter || ""}
                 onChange={(e) => handleInputChange("twitter", e.target.value)}
                 className="border-gray-300"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -429,6 +469,8 @@ const ProfileInformation = ({ userId }) => {
                 value={ngoProfile?.instagram || ""}
                 onChange={(e) => handleInputChange("instagram", e.target.value)}
                 className="border-gray-300"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
             </div>
             <div className="flex items-center space-x-2">
@@ -437,6 +479,8 @@ const ProfileInformation = ({ userId }) => {
                 value={ngoProfile?.linkedin || ""}
                 onChange={(e) => handleInputChange("linkedin", e.target.value)}
                 className="border-gray-300"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
             </div>
           </div>
@@ -444,6 +488,8 @@ const ProfileInformation = ({ userId }) => {
         <Button
           className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]"
           onClick={handleSaveChanges}
+          disabled={shouldDisableInputs}
+          title={shouldDisableInputs ? pendingTitle : ""}
         >
           Save Profile Changes
         </Button>

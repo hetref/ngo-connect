@@ -9,7 +9,7 @@ import { db } from "@/lib/firebase"; // Import Firestore
 import { doc, updateDoc, onSnapshot } from "firebase/firestore"; // Import updateDoc and onSnapshot functions
 import toast from "react-hot-toast";
 
-const DonationInformation = ({ ngoId }) => {
+const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
   const [donationsData, setDonationsData] = useState({
     razorpayKeyId: "",
     razorpayKeySecret: "",
@@ -92,6 +92,13 @@ const DonationInformation = ({ ngoId }) => {
   // NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_test_9xch4WbEcXUxCT
   // RAZORPAY_KEY_SECRET=LpFjSLwn631qJf7fZwNvNuKB
 
+  const shouldDisableInputs =
+    (verificationStatus === "verified" && approvalStatus === "verified") ||
+    (verificationStatus === "pending" && approvalStatus === "pending");
+
+  const pendingTitle =
+    "You cannot update the profile while the verification is in progress";
+
   return (
     <Card>
       <CardHeader>
@@ -106,6 +113,8 @@ const DonationInformation = ({ ngoId }) => {
             onChange={(e) => handleChange(e, "razorpayKeyId")}
             className="border-gray-300"
             required
+            disabled={shouldDisableInputs}
+            title={shouldDisableInputs ? pendingTitle : ""}
           />
           <Input
             placeholder="Razorpay Key Secret"
@@ -113,6 +122,8 @@ const DonationInformation = ({ ngoId }) => {
             onChange={(e) => handleChange(e, "razorpayKeySecret")}
             className="border-gray-300"
             required
+            disabled={shouldDisableInputs}
+            title={shouldDisableInputs ? pendingTitle : ""}
           />
         </div>
         <div className="space-y-2">
@@ -123,6 +134,8 @@ const DonationInformation = ({ ngoId }) => {
                 checked={donationsData.isBankTransferEnabled}
                 onChange={toggleBankTransfer}
                 className="mr-2"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               Enable Bank Transfers
             </Label>
@@ -137,6 +150,8 @@ const DonationInformation = ({ ngoId }) => {
                 }
                 className="border-gray-300"
                 required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               <Input
                 placeholder="Bank Name"
@@ -144,6 +159,8 @@ const DonationInformation = ({ ngoId }) => {
                 onChange={(e) => handleBankTransferChange(e, "bankName")}
                 className="border-gray-300"
                 required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               <Input
                 placeholder="Branch Name & Address"
@@ -153,6 +170,8 @@ const DonationInformation = ({ ngoId }) => {
                 }
                 className="border-gray-300"
                 required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               <Input
                 placeholder="Account Number"
@@ -160,6 +179,8 @@ const DonationInformation = ({ ngoId }) => {
                 onChange={(e) => handleBankTransferChange(e, "accountNumber")}
                 className="border-gray-300"
                 required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               <Input
                 placeholder="Account Type (Savings/Current)"
@@ -167,6 +188,8 @@ const DonationInformation = ({ ngoId }) => {
                 onChange={(e) => handleBankTransferChange(e, "accountType")}
                 className="border-gray-300"
                 required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
               <Input
                 placeholder="IFSC Code"
@@ -174,6 +197,8 @@ const DonationInformation = ({ ngoId }) => {
                 onChange={(e) => handleBankTransferChange(e, "ifscCode")}
                 className="border-gray-300"
                 required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
               />
             </div>
           )}
@@ -185,11 +210,15 @@ const DonationInformation = ({ ngoId }) => {
             value={donationsData.acknowledgmentMessage}
             onChange={(e) => handleChange(e, "acknowledgmentMessage")}
             className="border-gray-300"
+            disabled={shouldDisableInputs}
+            title={shouldDisableInputs ? pendingTitle : ""}
           />
         </div>
         <Button
           className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]"
           onClick={handleSave}
+          disabled={shouldDisableInputs}
+          title={shouldDisableInputs ? pendingTitle : ""}
         >
           Save Donation Settings
         </Button>

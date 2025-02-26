@@ -16,6 +16,7 @@ export async function POST(req) {
       from: "+16193617899",
       body,
     });
+    console.log("MESSAGE", message);
 
     return Response.json({ success: true, messageSid: message.sid });
   } catch (error) {

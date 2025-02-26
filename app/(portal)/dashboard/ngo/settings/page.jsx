@@ -7,10 +7,16 @@ import VerificationInformation from "@/components/profile/ngo/VerificationInform
 import DonationInformation from "@/components/profile/ngo/DonationInformation";
 import NotificationInformation from "@/components/profile/ngo/NotificationInformation";
 import SecurityInformation from "@/components/profile/ngo/SecurityInformation";
-import { auth } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { Button } from "@/components/ui/button";
+import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { useState, useEffect } from "react";
 
 const NGOSettingsPage = () => {
   const userId = auth.currentUser.uid;
+  const [ngoProfile, setNgoProfile] = useState(null);
+  const [approvalStatus, setApprovalStatus] = useState(null);
+  const [verificationStatus, setVerificationStatus] = useState(null);
   // const [darkMode, setDarkMode] = useState(false);
 
   // Effect to handle dark mode
@@ -22,6 +28,88 @@ const NGOSettingsPage = () => {
   //   }
   // }, [darkMode]);
 
+  // Effect to fetch NGO profile and verification status
+  useEffect(() => {
+    const ngoDocRef = doc(db, "ngo", userId);
+    const approvalDocRef = doc(db, "approvals", userId);
+
+    // Listen to NGO document changes
+    const unsubscribeNgo = onSnapshot(ngoDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setNgoProfile((prevProfile) => ({
+          ...prevProfile,
+          ...data,
+        }));
+        setVerificationStatus(data.isVerified);
+        console.log("NGO Data:", data);
+      }
+    });
+
+    // Listen to Approval document changes
+    const unsubscribeApproval = onSnapshot(approvalDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setApprovalStatus(docSnap.data().approval);
+      } else {
+        setApprovalStatus(null);
+      }
+    });
+
+    // Cleanup listeners on component unmount
+    return () => {
+      unsubscribeNgo();
+      unsubscribeApproval();
+    };
+  }, [userId]);
+
+  const handleVerifyProfile = async () => {
+    try {
+      // TODO: Check if the all information of the NGO is filled in or not.
+
+      // Create a new document in approvals collection with timestamp as ID
+      const timestamp = Date.now().toString();
+      const approvalRef = doc(db, "approvals", `${userId}`);
+      await setDoc(approvalRef, {
+        ngoId: userId,
+        timestamp: timestamp,
+        approval: "pending",
+      });
+
+      // Update the NGO document with verification status
+      const ngoRef = doc(db, "ngo", userId);
+      await updateDoc(ngoRef, {
+        isVerified: "pending",
+      });
+
+      // Optional: Show success message to user
+      alert("Verification request submitted successfully!");
+    } catch (error) {
+      console.error("Error submitting verification request:", error);
+      alert("Failed to submit verification request. Please try again.");
+    }
+  };
+
+  const handleSwitchToEditingMode = async () => {
+    try {
+      console.log("Requesting editing...");
+      const confirmation = confirm(
+        "Are you sure you want to switch to editing mode?"
+      );
+      if (confirmation) {
+        console.log("Switching to editing mode...");
+        // Update the isVerified inside the "ngo/[ngoId]" to pending again"
+        const ngoRef = doc(db, "ngo", userId);
+        await updateDoc(ngoRef, {
+          isVerified: "pending",
+        });
+      }
+      // Just
+    } catch (error) {
+      console.error("Error requesting editing:", error);
+      alert("Failed to switch to editing mode. Please try again.");
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -31,18 +119,30 @@ const NGOSettingsPage = () => {
     >
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">NGO Settings</h1>
-        {/* <Button
-          variant="outline"
-          size="icon"
-          onClick={() => setDarkMode(!darkMode)}
-          className="rounded-full"
-        >
-          {darkMode ? (
-            <Sun className="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-          ) : (
-            <Moon className="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-          )}
-        </Button> */}
+        {verificationStatus === "verified" ? (
+          <div className="flex items-center justify-center gap-3">
+            <div className="text-green-600 font-semibold px-4 py-2 bg-green-100 rounded-full">
+              Profile Verified ✓
+            </div>
+            <Button
+              className="rounded-full bg-yellow-600 hover:bg-yellow-700"
+              onClick={handleSwitchToEditingMode}
+            >
+              Edit Profile
+            </Button>
+          </div>
+        ) : approvalStatus === "pending" && verificationStatus === "pending" ? (
+          <div className="text-yellow-600 font-semibold px-4 py-2 bg-yellow-100 rounded-full">
+            Profile is in process to be verified
+          </div>
+        ) : (
+          <Button
+            className="rounded-full bg-yellow-600 hover:bg-yellow-700"
+            onClick={handleVerifyProfile}
+          >
+            Verify Profile
+          </Button>
+        )}
       </div>
 
       {/* Add Awards & Recognitions Tab where the NGO can add the Awards and Recognition they received */}
@@ -59,11 +159,19 @@ const NGOSettingsPage = () => {
         </TabsList>
 
         <TabsContent value="profile">
-          <ProfileInformation userId={userId} />
+          <ProfileInformation
+            userId={userId}
+            approvalStatus={approvalStatus}
+            verificationStatus={verificationStatus}
+          />
         </TabsContent>
 
         <TabsContent value="verification">
-          <VerificationInformation ngoId={userId} />
+          <VerificationInformation
+            ngoId={userId}
+            approvalStatus={approvalStatus}
+            verificationStatus={verificationStatus}
+          />
         </TabsContent>
 
         {/* <TabsContent value="team">
@@ -148,7 +256,11 @@ const NGOSettingsPage = () => {
         </TabsContent> */}
 
         <TabsContent value="donations">
-          <DonationInformation ngoId={userId} />
+          <DonationInformation
+            ngoId={userId}
+            approvalStatus={approvalStatus}
+            verificationStatus={verificationStatus}
+          />
         </TabsContent>
 
         {/* <TabsContent value="notifications">
@@ -156,7 +268,11 @@ const NGOSettingsPage = () => {
         </TabsContent> */}
 
         <TabsContent value="security">
-          <SecurityInformation />
+          <SecurityInformation
+            userId={userId}
+            approvalStatus={approvalStatus}
+            verificationStatus={verificationStatus}
+          />
         </TabsContent>
       </Tabs>
     </motion.div>

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -16,15 +16,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Upload, MapPin, Download, Star, Trophy, Users } from "lucide-react"
 import { Checkbox } from "@/components/ui/checkbox"
+import { doc, getDoc, updateDoc } from "firebase/firestore"
+import { db } from "@/lib/firebase" // Make sure you have this firebase config file
 
 export default function UserSettingsPage() {
+  // User profile state with default values
   const [userProfile, setUserProfile] = useState({
-    name: "John Doe",
-    email: "john.doe@example.com",
-    phone: "+91 9876543210",
-    address: "123 Main St, City, Country",
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    userId: "",
+    type: "",
+    createdAt: null
   })
 
+  // Loading state
+  const [isLoading, setIsLoading] = useState(true)
+  
+  // Other states remain the same
   const [volunteerPreferences, setVolunteerPreferences] = useState({
     skills: ["Communication", "Event Planning"],
     interests: ["Environment", "Education"],
@@ -49,6 +59,71 @@ export default function UserSettingsPage() {
     { id: 1, name: "Eco Warrior", description: "Participated in 5 environmental events" },
     { id: 2, name: "Generous Donor", description: "Donated over ₹10,000" },
   ]
+
+  // Fetch user data from Firebase on component mount
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        // For this example, we'll use the userId from your provided data
+        const userId = "2qHbGFAD5uMZsdqGQGFGvB13Ge82"
+        const userDocRef = doc(db, "users", userId)
+        const userDoc = await getDoc(userDocRef)
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data()
+          setUserProfile({
+            name: userData.name || "",
+            email: userData.email || "",
+            // Get phone from Firebase and format it with +91 prefix if needed
+            phone: userData.phone ? `+91 ${userData.phone}` : "",
+            address: userData.address || "",
+            userId: userData.userId || userId,
+            type: userData.type || "user",
+            createdAt: userData.createdAt || null
+          })
+        }
+      } catch (error) {
+        console.error("Error fetching user data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchUserData()
+  }, [])
+
+  // Save profile changes to Firebase
+  const saveProfileChanges = async () => {
+    try {
+      const userDocRef = doc(db, "users", userProfile.userId)
+      
+      // Process phone number to remove +91 prefix if present
+      let phoneNumber = userProfile.phone
+      if (phoneNumber.startsWith("+91 ")) {
+        phoneNumber = phoneNumber.substring(4)
+      }
+      
+      // Convert to number for Firebase storage
+      const phoneAsNumber = Number(phoneNumber.replace(/\D/g, ''))
+      
+      await updateDoc(userDocRef, {
+        name: userProfile.name,
+        email: userProfile.email,
+        phone: phoneAsNumber, // Save as number in Firebase
+        address: userProfile.address
+      })
+      
+      alert("Profile updated successfully!")
+    } catch (error) {
+      console.error("Error updating profile:", error)
+      alert("Failed to update profile. Please try again.")
+    }
+  }
+
+  // Show loading state while fetching data
+  if (isLoading) {
+    return <div className="container mx-auto p-4">Loading user data...</div>
+  }
 
   return (
     <motion.div
@@ -79,7 +154,7 @@ export default function UserSettingsPage() {
               <div className="flex items-center space-x-4">
                 <Avatar className="w-20 h-20">
                   <AvatarImage src="/placeholder.svg?height=80&width=80" alt="Profile Picture" />
-                  <AvatarFallback>JD</AvatarFallback>
+                  <AvatarFallback>{userProfile.name?.split(' ').map(n => n[0]).join('') || 'U'}</AvatarFallback>
                 </Avatar>
                 <div>
                   <Button variant="outline">
@@ -127,7 +202,12 @@ export default function UserSettingsPage() {
                   <MapPin className="mr-2 h-4 w-4" /> Set Location Preferences
                 </Button>
               </div>
-              <Button className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]">Save Profile Changes</Button>
+              <Button 
+                className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]"
+                onClick={saveProfileChanges}
+              >
+                Save Profile Changes
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>
@@ -418,4 +498,3 @@ export default function UserSettingsPage() {
     </motion.div>
   )
 }
-

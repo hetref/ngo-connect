@@ -1,25 +1,88 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { useState, useEffect } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/lib/firebase"; // Make sure you have this firebase config file
 
 export function PersonalOverview() {
-  const user = {
-    name: "John Doe",
-    avatar: "/placeholder-avatar.jpg",
-    badges: ["Community Hero", "Frequent Donor"],
-    membershipStatus: "Gold Member",
-    stats: {
-      eventsVolunteered: 12,
-      totalDonations: 25000,
-      badgesEarned: 5,
-      upcomingEvents: 2,
-    },
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        // Use the userId from your Firebase data
+        const userId = "2qHbGFAD5uMZsdqGQGFGvB13Ge82";
+        const userDoc = await getDoc(doc(db, "users", userId));
+        
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          
+          // Transform the Firebase data to match the component's expected structure
+          // You'll need to add these fields to your Firebase or modify the component
+          setUser({
+            name: userData.name || "User",
+            avatar: userData.avatar || "/placeholder-avatar.jpg",
+            address: userData.address,
+            email: userData.email,
+            phone: userData.phone,
+            membershipStatus: userData.membershipStatus || "Member",
+            badges: userData.badges || ["Community Member"],
+            stats: {
+              eventsVolunteered: userData.eventsVolunteered || 0,
+              totalDonations: userData.totalDonations || 0,
+              badgesEarned: userData.badgesEarned || 0,
+              upcomingEvents: userData.upcomingEvents || 0,
+            },
+          });
+        } else {
+          setError("User not found");
+        }
+      } catch (err) {
+        console.error("Error fetching user data:", err);
+        setError("Failed to load user data");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Loading state
+  if (loading) {
+    return (
+      <Card>
+        <CardContent className="p-8 flex justify-center items-center">
+          <div className="animate-pulse text-center">
+            <p>Loading your profile...</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Error state
+  if (error || !user) {
+    return (
+      <Card>
+        <CardContent className="p-8">
+          <div className="text-center text-red-500">
+            <p>{error || "Something went wrong"}</p>
+          </div>
+        </CardContent>
+      </Card>
+    );
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl md:text-2xl">Welcome back, {user.name}! Here's your impact summary.</CardTitle>
+        <CardTitle className="text-xl md:text-2xl">
+          Welcome back, {user.name}! Here's your impact summary.
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -44,6 +107,14 @@ export function PersonalOverview() {
             </div>
           </div>
         </div>
+        
+        {/* User contact info */}
+        <div className="p-4 bg-secondary/30 rounded-lg space-y-2">
+          <p><span className="font-medium">Email:</span> {user.email}</p>
+          <p><span className="font-medium">Phone:</span> {user.phone}</p>
+          <p><span className="font-medium">Address:</span> {user.address}</p>
+        </div>
+
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
             <span className="text-xl sm:text-2xl font-bold">✅ {user.stats.eventsVolunteered}</span>
@@ -64,6 +135,5 @@ export function PersonalOverview() {
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
-

@@ -119,14 +119,15 @@ const ParticipantRegistrationForm = () => {
     try {
       const userId = auth.currentUser.uid;
       const timestamp = new Date().toISOString();
-
+      const sId = activityId + userId;
       // Add to participants subcollection
       await setDoc(doc(db, "activities", activityId, "participants", userId), {
         ...formData,
         userId,
         submittedAt: timestamp,
-        status: "pending",
+        // status: "pending",
         attendance: false,
+        sId,
       });
 
       // Update user's document
@@ -136,8 +137,9 @@ const ParticipantRegistrationForm = () => {
           activityId,
           ngoId,
           appliedAt: timestamp,
-          status: "pending",
+          // status: "pending",
           attendance: false,
+          sId,
         }),
       });
 

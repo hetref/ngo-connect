@@ -207,6 +207,7 @@ export default function NGOMembersPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Actions</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -234,6 +235,13 @@ export default function NGOMembersPage() {
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
+                  </TableCell>
+                  <TableCell className="text-center">
+                    <p
+                      className={`${member.status === "pending" ? "text-white bg-red-500 p-1 rounded-lg" : "text-white  bg-green-400 p-1 rounded-lg"}`}
+                    >
+                      {member.status}
+                    </p>
                   </TableCell>
                 </TableRow>
               ))}

@@ -12,7 +12,7 @@ export async function POST(req) {
     console.log("BODY", body);
 
     const message = await client.messages.create({
-      to,
+      to: `+91${to}`,
       from: "+16193617899",
       body,
     });

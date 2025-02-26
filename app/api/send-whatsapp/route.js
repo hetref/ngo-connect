@@ -28,7 +28,7 @@ export async function POST(request) {
                   { type: "text", text: date },
                   { type: "text", text: email },
                   { type: "text", text: phone },
-                  { type: "text", text: `₹${amount}` },
+                  { type: "text", text: `${amount}` },
                 ],
               },
             ],

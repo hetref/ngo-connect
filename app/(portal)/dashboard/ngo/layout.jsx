@@ -11,6 +11,7 @@ import {
   Store,
   Settings,
   LogOut,
+  PackagePlus,
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
@@ -38,8 +39,13 @@ const ngoNavConfig = {
       icon: IndianRupee,
       href: "/dashboard/ngo/donations",
     },
+  ],
+  
+  ProductNavItems: [
+    { name: "Products", icon: PackagePlus, href: "/dashboard/ngo/products" },
     { name: "Inventory", icon: Store, href: "/dashboard/ngo/inventory" },
   ],
+  
   bottomNavItems: [
     { name: "Settings", icon: Settings, href: "/dashboard/ngo/settings" },
   ],

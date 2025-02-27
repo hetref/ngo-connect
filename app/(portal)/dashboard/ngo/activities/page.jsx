@@ -8,33 +8,8 @@ import { Calendar, MapPin, Plus, Users } from "lucide-react";
 import { MetricsOverview } from "@/components/metrics-overview";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
+import Image from 'next/image';
 
-const events = [
-  {
-    id: 1,
-    title: "Beach Cleanup",
-    date: "2023-08-15",
-    location: "Sunny Beach",
-    volunteers: 45,
-    image: "https://source.unsplash.com/random/800x600/?beach",
-  },
-  {
-    id: 2,
-    title: "Food Drive",
-    date: "2023-08-20",
-    location: "Community Center",
-    volunteers: 30,
-    image: "https://source.unsplash.com/random/800x600/?food",
-  },
-  {
-    id: 3,
-    title: "Tree Planting",
-    date: "2023-08-10",
-    location: "City Park",
-    volunteers: 60,
-    image: "https://source.unsplash.com/random/800x600/?tree",
-  },
-];
 
 export default function NGOActivitiesPage() {
   const [activities, setActivities] = useState([]);
@@ -168,11 +143,15 @@ export default function NGOActivitiesPage() {
             >
               <Link href={`/dashboard/ngo/activities/${activity.id}`}>
                 <Card className="cursor-pointer overflow-hidden transition-shadow hover:shadow-lg">
-                  <img
-                    src={activity.featuredImageUrl || "/placeholder.svg"}
-                    alt={activity.eventName}
-                    className="h-48 w-full object-cover"
-                  />
+                  <div className="relative h-48">
+                    <Image
+                      src={activity.featuredImageUrl || "/placeholder.svg"}
+                      alt={activity.eventName}
+                      layout="fill"
+                      objectFit="contain"
+                      className="absolute inset-0"
+                    />
+                  </div>
                   <CardHeader>
                     <CardTitle>{activity.eventName}</CardTitle>
                   </CardHeader>

@@ -16,6 +16,7 @@ import {
   MoveUpRight,
 } from "lucide-react";
 import { PayoutManagement } from "@/components/payout-management";
+import Image from 'next/image';
 
 import {
   getFirestore,
@@ -214,10 +215,12 @@ export default function NGOActivitiesPage() {
           </div>
 
           <div className="relative h-96">
-            <img
+            <Image
               src={activity.featuredImageUrl || "/placeholder.svg"}
               alt={activity.eventName}
-              className="h-full w-full object-cover"
+              layout="fill"
+              objectFit="contain"
+              className="absolute inset-0"
             />
           </div>
           <CardHeader>

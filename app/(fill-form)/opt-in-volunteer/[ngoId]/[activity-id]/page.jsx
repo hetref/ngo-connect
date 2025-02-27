@@ -112,6 +112,10 @@ const VolunteerRegistrationForm = () => {
       setError("Please login to register");
       return;
     }
+    if (formData.type === "ngo" && formData.role === "admin") {
+      console.log("You can't register as volunteer for admin NGO");
+      return;
+    }
 
     if (hasAlreadyApplied) {
       setError("You have already registered for this activity");
@@ -121,14 +125,14 @@ const VolunteerRegistrationForm = () => {
     try {
       const userId = auth.currentUser.uid;
       const timestamp = new Date().toISOString();
-
+      const sId = activityId + userId;
       // Add to volunteers subcollection
       await setDoc(doc(db, "activities", activityId, "volunteers", userId), {
         ...formData,
         userId,
         submittedAt: timestamp,
-        status: "pending",
         attendance: false,
+        sId,
       });
 
       // Update user's document
@@ -138,8 +142,9 @@ const VolunteerRegistrationForm = () => {
           activityId,
           ngoId,
           appliedAt: timestamp,
-          status: "pending",
+          coordinatorId: activityData.coordinatorId,
           attendance: false,
+          sId,
         }),
       });
 
@@ -196,9 +201,8 @@ const VolunteerRegistrationForm = () => {
         </CardHeader>
         <CardContent>
           <p className="text-center">
-            {isFull
-              ? "The volunteer registration limit has been reached."
-              : "Volunteer registration is currently closed."}
+            {/* {isFull ?"Volunteer registration is currently closed."} */}
+            Volunteer registration is currently closed.
           </p>
         </CardContent>
         <CardFooter className="justify-center">

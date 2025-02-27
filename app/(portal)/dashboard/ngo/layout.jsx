@@ -12,6 +12,7 @@ import {
   Settings,
   LogOut,
   PackagePlus,
+  Scan,
 } from "lucide-react";
 import Chatbot from "@/components/chatbot";
 import { useRouter } from "next/navigation";
@@ -32,6 +33,11 @@ const ngoNavConfig = {
       href: "/dashboard/ngo/activities",
     },
     { name: "Members", icon: Users, href: "/dashboard/ngo/members" },
+    {
+      name: "Coordinated Activities",
+      icon: Scan,
+      href: "/dashboard/ngo/coordinated-activities",
+    },
   ],
   financeNavItems: [
     {

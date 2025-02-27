@@ -10,7 +10,7 @@ import {
   onSnapshot,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { Pencil, Trash } from "lucide-react";
+import { MoveUpRight, Pencil, Trash } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -214,7 +214,7 @@ const ActivityFormsPage = () => {
             </div>
           </CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex justify-between items-center">
           <div className="space-y-2">
             <p>
               Status:{" "}
@@ -227,6 +227,26 @@ const ActivityFormsPage = () => {
                 {isVolunteerForm ? "Volunteers" : "Participants"}:{" "}
                 {currentCount} / {limit}
               </p>
+            )}
+          </div>
+          <div>
+            {isVolunteerForm ? (
+              <Link
+                href={`/dashboard/ngo/activities/${activityId}/forms/volunteers`}
+                className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
+              >
+                <MoveUpRight className="mr-2 h-4 w-4" />
+                View Volunteers
+              </Link>
+            ) : (
+              <Link
+                className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
+                href={`/dashboard/ngo/activities/${activityId}/forms/participants`}
+              >
+                {" "}
+                <MoveUpRight className="mr-2 h-4 w-4" />
+                View Participants
+              </Link>
             )}
           </div>
         </CardContent>
@@ -254,7 +274,7 @@ const ActivityFormsPage = () => {
         />
       </div>
 
-      <div className="space-y-4 mb-8">
+      {/* <div className="space-y-4 mb-8">
         <div>
           <h2 className="text-lg font-semibold mb-2">
             Volunteer Registration Form Link:
@@ -278,7 +298,7 @@ const ActivityFormsPage = () => {
             Open Form
           </Link>
         </div>
-      </div>
+      </div> */}
 
       <div className="space-y-4">
         <Button onClick={() => setShowEmailInput(!showEmailInput)}>

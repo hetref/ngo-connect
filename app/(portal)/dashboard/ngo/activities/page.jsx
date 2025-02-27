@@ -8,34 +8,7 @@ import { Calendar, MapPin, Plus, Users } from "lucide-react";
 import { MetricsOverview } from "@/components/metrics-overview";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
-import Image from 'next/image';
-
-const events = [
-  {
-    id: 1,
-    title: "Beach Cleanup",
-    date: "2023-08-15",
-    location: "Sunny Beach",
-    volunteers: 45,
-    image: "https://source.unsplash.com/random/800x600/?beach",
-  },
-  {
-    id: 2,
-    title: "Food Drive",
-    date: "2023-08-20",
-    location: "Community Center",
-    volunteers: 30,
-    image: "https://source.unsplash.com/random/800x600/?food",
-  },
-  {
-    id: 3,
-    title: "Tree Planting",
-    date: "2023-08-10",
-    location: "City Park",
-    volunteers: 60,
-    image: "https://source.unsplash.com/random/800x600/?tree",
-  },
-];
+import Image from "next/image";
 
 export default function NGOActivitiesPage() {
   const [activities, setActivities] = useState([]);

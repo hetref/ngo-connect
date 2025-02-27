@@ -171,7 +171,7 @@ const NGOListPage = () => {
                 </div>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
-                    <Link href={`/dashboard/ngo/${ngo.id}`}>
+                    <Link href={`/ngo/${ngo.id}`}>
                       {ngo.ngoName}
                     </Link>
                     <DropdownMenu>

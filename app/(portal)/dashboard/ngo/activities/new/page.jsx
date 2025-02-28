@@ -306,7 +306,7 @@ const page = () => {
           >
             <option value="">Select Coordinator</option>
             {members
-              .filter((member) => member.status === "registered")
+              .filter((member) => member.status === "active")
               .map((member) => (
                 <option key={member.userId} value={member.userId}>
                   {member.email}

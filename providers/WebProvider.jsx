@@ -5,7 +5,7 @@ import React from "react";
 import "@rainbow-me/rainbowkit/styles.css";
 
 import { getDefaultConfig, RainbowKitProvider } from "@rainbow-me/rainbowkit";
-import { WagmiConfig } from "wagmi";
+import { WagmiProvider } from "wagmi";
 import { sepolia } from "wagmi/chains";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 
@@ -23,11 +23,11 @@ const Providers = ({ children }) => {
   });
 
   return (
-    <WagmiConfig config={config}>
+    <WagmiProvider config={config}>
       <QueryClientProvider client={queryClient}>
         <RainbowKitProvider chains={[sepolia]}>{children}</RainbowKitProvider>
       </QueryClientProvider>
-    </WagmiConfig>
+    </WagmiProvider>
   );
 };
 

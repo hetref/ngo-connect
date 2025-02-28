@@ -14,9 +14,18 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendWhatsappMessage } from "@/lib/whatsappMessages";
-import { NGOABI, SuperAdminABI } from "@/constants/contract";
-import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
+import { NGOABI, NGOCoinABI, SuperAdminABI } from "@/constants/contract";
+import {
+  useAccount,
+  useDisconnect,
+  useEnsAvatar,
+  useEnsName,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from "wagmi";
 import { useReadContract } from "wagmi";
+import { formatEther, parseUnits } from "ethers";
+import { toast } from "react-hot-toast";
 
 const DonateNow = ({ ngoData }) => {
   const [isOnlineModalOpen, setIsOnlineModalOpen] = useState(false);
@@ -34,16 +43,25 @@ const DonateNow = ({ ngoData }) => {
     wantsCertificate: false,
   });
   const [userType, setUserType] = useState(null);
+  const [cryptoAmount, setCryptoAmount] = useState("");
+
+  // NGC Contract Address - 0xAbFb2AeF4aAC335Cda2CeD2ddd8A6521047e8ddF
+  // NGO Contract Address is being fetched from firestore.
+
   const { address: walletAddressHere } = useAccount();
   const {
     data: ownerAdd,
     error: ownerError,
     isPending,
   } = useReadContract({
-    address: "0x910e2B3bA649E2787322344724BDF0868Cb23DB0",
+    address: ngoData?.donationsData?.ngoOwnerAddContract || undefined,
     abi: NGOABI,
     functionName: "availableBalance",
+    enabled: Boolean(ngoData?.donationsData?.ngoOwnerAddContract),
   });
+  // const { data: hash, writeContract } = useWriteContract();
+
+  const formattedBalance = ownerAdd ? formatEther(ownerAdd) : "0";
 
   if (isPending) {
     console.log("PENDING CALL");
@@ -70,6 +88,7 @@ const DonateNow = ({ ngoData }) => {
           if (userDocSnap.exists()) {
             const userData = userDocSnap.data();
             setUserType(userData.type);
+
             setOnlineFormData((prev) => ({
               ...prev,
               name: userData?.name || "",
@@ -240,8 +259,169 @@ const DonateNow = ({ ngoData }) => {
     [onlineFormData, ngoData]
   );
 
+  // Approve Tokens
+  const parsedAmount = cryptoAmount ? parseUnits(cryptoAmount, 18) : "0";
+
+  const { writeContract } = useWriteContract();
+  const [approvalHash, setApprovalHash] = useState(null);
+  const [donationHash, setDonationHash] = useState(null);
+
+  // Helper function to update database records - Move this up
+  const updateDatabaseRecords = useCallback(
+    async (amount) => {
+      const donationData = {
+        amount: amount,
+        userId: auth.currentUser.uid,
+        ngoId: ngoData.ngoId,
+        name: onlineFormData?.name || "",
+        email: onlineFormData?.email || "",
+        phone: onlineFormData?.phone || "",
+        timestamp: new Date().toISOString(),
+        transactionType: "crypto",
+      };
+
+      console.log("DONATIONDATA", donationData);
+
+      try {
+        await Promise.all([
+          sendWhatsappMessage(
+            donationData.name,
+            ngoData.ngoName,
+            donationData.timestamp,
+            donationData.email,
+            donationData.phone,
+            donationData.amount
+          ),
+          setDoc(
+            doc(
+              db,
+              "donations",
+              ngoData.ngoId,
+              new Date().getFullYear().toString(),
+              auth.currentUser.uid,
+              "crypto",
+              donationData.timestamp
+            ),
+            donationData,
+            { merge: true }
+          ),
+          updateDoc(doc(db, "users", auth.currentUser.uid), {
+            totalTokensDonated: increment(amount),
+          }),
+          updateDoc(doc(db, "ngo", ngoData.ngoId), {
+            totalTokensDonated: increment(amount),
+          }),
+          setDoc(
+            doc(db, "users", auth.currentUser.uid, "donatedTo", ngoData.ngoId),
+            {
+              tokens: increment(amount),
+              timestamp: donationData.timestamp,
+            },
+            { merge: true }
+          ),
+        ]);
+
+        toast.success("Donation recorded successfully!");
+      } catch (error) {
+        console.error("Error updating database:", error);
+        toast.error("Failed to update records. Please contact support.");
+      }
+    },
+    [ngoData, onlineFormData]
+  );
+
+  const handleDonate = useCallback(async () => {
+    try {
+      const hash = await writeContract({
+        address: ngoData?.donationsData?.ngoOwnerAddContract,
+        abi: NGOABI,
+        functionName: "donate",
+        args: [parsedAmount],
+      });
+      setDonationHash(hash);
+    } catch (error) {
+      toast.error("Donation failed: " + error.message);
+      console.error(error);
+    }
+  }, [
+    parsedAmount,
+    ngoData?.donationsData?.ngoOwnerAddContract,
+    writeContract,
+  ]);
+
+  const handleApprove = useCallback(async () => {
+    if (!parsedAmount || parsedAmount <= 0) {
+      toast.error("Please enter a valid donation amount.");
+      return;
+    }
+
+    try {
+      const hash = await writeContract({
+        address: "0xAbFb2AeF4aAC335Cda2CeD2ddd8A6521047e8ddF",
+        abi: NGOCoinABI,
+        functionName: "approve",
+        args: [ngoData?.donationsData?.ngoOwnerAddContract, parsedAmount],
+      });
+      setApprovalHash(hash);
+    } catch (error) {
+      toast.error("Approval failed: " + error.message);
+      console.error(error);
+    }
+  }, [
+    parsedAmount,
+    ngoData?.donationsData?.ngoOwnerAddContract,
+    writeContract,
+  ]);
+
+  // Watch approval transaction
+  const { isLoading: isApproving, isSuccess: approvalSuccess } =
+    useWaitForTransactionReceipt({
+      hash: approvalHash,
+    });
+
+  // Watch donation transaction
+  const { isLoading: isDonating, isSuccess: donationSuccess } =
+    useWaitForTransactionReceipt({
+      hash: donationHash,
+    });
+
+  // Watch for approval success and trigger donation
+  useEffect(() => {
+    if (approvalSuccess) {
+      toast.success("Token approval successful!");
+      handleDonate();
+    }
+  }, [approvalSuccess, handleDonate]);
+
+  // Watch for donation success and update database
+  useEffect(() => {
+    if (donationSuccess) {
+      toast.success("Donation successful!");
+      updateDatabaseRecords(parsedAmount);
+    }
+  }, [donationSuccess, parsedAmount, updateDatabaseRecords]);
+
+  const handleCryptoDonation = useCallback(
+    (e) => {
+      e.preventDefault();
+      handleApprove();
+      handleDonate();
+    },
+    [handleApprove, handleDonate]
+  );
+
   return (
     <div className="space-y-6">
+      {ngoData?.donationsData?.isCryptoTransferEnabled && (
+        <div>
+          Balance:{" "}
+          {isPending
+            ? "Loading..."
+            : ownerError
+              ? "Error loading balance"
+              : `${formattedBalance} ETH`}
+        </div>
+      )}
       {userType === "user" && (
         <h2 className="text-2xl font-bold mb-4">Support Our Cause</h2>
       )}
@@ -393,24 +573,37 @@ const DonateNow = ({ ngoData }) => {
             </p>
             <p className="font-semibold">contact@examplengo.org</p>
           </div>
-          <div>
-            <h2>Crypto Donation</h2>
-            <form className="space-y-4">
-              <div>
-                <Label htmlFor="cryptoAmount">Amount (USD)</Label>
-                <Input
-                  id="cryptoAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Enter amount"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Donate
-              </Button>
-            </form>
-          </div>
+          {ngoData?.donationsData?.isCryptoTransferEnabled && (
+            <div>
+              <h2>Crypto Donation</h2>
+              <form onSubmit={handleCryptoDonation} className="space-y-4">
+                <div>
+                  <Label htmlFor="cryptoAmount">Amount (NGC)</Label>
+                  <Input
+                    id="cryptoAmount"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    placeholder="Enter amount"
+                    value={cryptoAmount}
+                    onChange={(e) => setCryptoAmount(e.target.value)}
+                    disabled={isApproving || isDonating}
+                  />
+                </div>
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={!walletAddressHere || isApproving || isDonating}
+                >
+                  {isApproving
+                    ? "Approving..."
+                    : isDonating
+                      ? "Donating..."
+                      : "Donate NGC"}
+                </Button>
+              </form>
+            </div>
+          )}
         </div>
         <Dialog open={isOnlineModalOpen} onOpenChange={setIsOnlineModalOpen}>
           <DialogContent>

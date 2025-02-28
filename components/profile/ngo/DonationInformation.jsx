@@ -2,18 +2,46 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CreditCard } from "lucide-react";
+import { CheckCircleIcon, CreditCard } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase"; // Import Firestore
 import { doc, updateDoc, onSnapshot } from "firebase/firestore"; // Import updateDoc and onSnapshot functions
 import toast from "react-hot-toast";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
+import { useWriteContract, useReadContract } from "wagmi";
+import { SuperAdminABI } from "@/constants/contract";
 
 const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
+  const { data: hash, isPending, writeContract } = useWriteContract();
+  const { address: walletAddress, isConnected } = useAccount();
+
+  const {
+    data: ngoOwnerAddContract,
+    error: ngoOwnerError,
+    isPending: ngoOwnerAddPending,
+  } = useReadContract({
+    address: "0x0d6520f87a7c18bf10972a4E47F99338DE64B2B8",
+    abi: SuperAdminABI,
+    functionName: "ngoContracts",
+    args: [walletAddress],
+  });
+
+  // Convert zero address to null
+  const formattedNgoOwnerContract =
+    ngoOwnerAddContract === "0x0000000000000000000000000000000000000000"
+      ? null
+      : ngoOwnerAddContract;
+
+  console.log("NGO OWNER ADDRESS", ngoOwnerAddContract);
+
   const [donationsData, setDonationsData] = useState({
     razorpayKeyId: "",
     razorpayKeySecret: "",
     isBankTransferEnabled: false,
+    isCryptoTransferEnabled: false,
+    cryptoWalletAddress: walletAddress,
     bankTransferDetails: {
       accountHolderName: "",
       bankName: "",
@@ -25,6 +53,8 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     acknowledgmentMessage: "",
   });
 
+  // Contract Address SuperAdmin - 0x0d6520f87a7c18bf10972a4E47F99338DE64B2B8
+
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, "ngo", ngoId), (doc) => {
       if (doc.exists() && doc.data()?.donationsData) {
@@ -35,9 +65,36 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     return () => unsubscribe(); // Cleanup subscription on unmount
   }, [ngoId]);
 
+  useEffect(() => {
+    if (!isConnected) {
+      setDonationsData((prev) => ({
+        ...prev,
+        cryptoWalletAddress: "",
+      }));
+    } else {
+      setDonationsData((prev) => ({
+        ...prev,
+        cryptoWalletAddress: walletAddress,
+      }));
+    }
+  }, [walletAddress, isConnected]);
+
+  const addNgoInContract = async () => {
+    try {
+      await writeContract({
+        address: "0x0d6520f87a7c18bf10972a4E47F99338DE64B2B8",
+        abi: SuperAdminABI,
+        functionName: "createNGO",
+        args: [walletAddress, "0xAbFb2AeF4aAC335Cda2CeD2ddd8A6521047e8ddF"],
+      });
+    } catch (error) {
+      console.error("Error creating NGO contract:", error);
+      toast.error("Failed to create NGO contract");
+    }
+  };
+
   const handleSave = async () => {
     if (!donationsData.razorpayKeyId || !donationsData.razorpayKeySecret) {
-      // alert("Razorpay Key ID and Secret are required.");
       toast.error("Razorpay Key ID and Secret are required.");
       return;
     }
@@ -51,19 +108,43 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
         donationsData.bankTransferDetails.accountType === "" ||
         donationsData.bankTransferDetails.ifscCode === "")
     ) {
-      // alert("All bank transfer details are required.");
       toast.error("All bank transfer details are required.");
       return;
     }
+
+    if (donationsData.isCryptoTransferEnabled && !isConnected) {
+      toast.error("Crypto wallet address is required.");
+      return;
+    }
+
     console.log("DONATIONDATA", donationsData);
 
+    if (!donationsData.isCryptoTransferEnabled) {
+      donationsData.cryptoWalletAddress = null;
+    }
+
     try {
-      await updateDoc(doc(db, "ngo", ngoId), { donationsData });
-      // alert("Donation settings updated successfully!");
+      // Check if contract address is zero/null and create NGO if needed
+      if (!formattedNgoOwnerContract) {
+        await addNgoInContract();
+        // Wait for transaction to be mined before proceeding
+        await new Promise((resolve) => setTimeout(resolve, 5000)); // Add delay to allow contract creation
+      }
+
+      // Update the donations data with wallet and contract addresses
+      const updatedDonationsData = {
+        ...donationsData,
+        ngoOwnerAdd: walletAddress,
+        ngoOwnerAddContract: formattedNgoOwnerContract,
+      };
+
+      await updateDoc(doc(db, "ngo", ngoId), {
+        donationsData: updatedDonationsData,
+      });
+
       toast.success("Donation settings updated successfully!");
     } catch (error) {
       console.error("Error updating donation settings: ", error);
-      // alert("Failed to update donation settings.");
       toast.error("Failed to update donation settings.");
     }
   };
@@ -86,6 +167,13 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     setDonationsData((prev) => ({
       ...prev,
       isBankTransferEnabled: !prev.isBankTransferEnabled,
+    }));
+  };
+
+  const toggleCryptoTransfer = () => {
+    setDonationsData((prev) => ({
+      ...prev,
+      isCryptoTransferEnabled: !prev.isCryptoTransferEnabled,
     }));
   };
 
@@ -203,6 +291,53 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
             </div>
           )}
         </div>
+
+        <div className="space-y-2">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+            <Label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={donationsData.isCryptoTransferEnabled}
+                onChange={toggleCryptoTransfer}
+                className="mr-2"
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
+              />
+              Enable Crypto Transfers
+            </Label>
+          </div>
+          {donationsData.isCryptoTransferEnabled && (
+            <div className="w-full flex items-center gap-4">
+              {!shouldDisableInputs && isConnected && (
+                <Input
+                  placeholder="Crypto Wallet Address"
+                  value={donationsData.cryptoWalletAddress || walletAddress}
+                  onChange={(e) => handleChange(e, "cryptoWalletAddress")}
+                  className="border-gray-300 w-fit"
+                  required
+                  readOnly
+                  disabled={shouldDisableInputs}
+                  title={shouldDisableInputs ? pendingTitle : ""}
+                />
+              )}
+
+              {(isConnected || !formattedNgoOwnerContract) && (
+                <div className="w-fit flex items-center justify-center">
+                  <ConnectButton />
+                </div>
+              )}
+
+              {isConnected && formattedNgoOwnerContract && (
+                <div className="w-fit flex items-center justify-center gap-2">
+                  <CheckCircleIcon className="w-4 h-4 text-green-500" />
+                  <span className="text-sm">
+                    Contract Address: {formattedNgoOwnerContract}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
         <div className="space-y-2">
           <Label>Donation Acknowledgment Message</Label>
           <Textarea
@@ -222,6 +357,8 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
         >
           Save Donation Settings
         </Button>
+        {isPending && <span>Pending Transaction</span>}
+        {hash && <div>Transaction Hash: {hash}</div>}
       </CardContent>
     </Card>
   );

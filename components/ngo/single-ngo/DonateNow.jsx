@@ -59,7 +59,6 @@ const DonateNow = ({ ngoData }) => {
     functionName: "availableBalance",
     enabled: Boolean(ngoData?.donationsData?.ngoOwnerAddContract),
   });
-  // const { data: hash, writeContract } = useWriteContract();
 
   const formattedBalance = ownerAdd ? formatEther(ownerAdd) : "0";
 
@@ -69,14 +68,6 @@ const DonateNow = ({ ngoData }) => {
     console.log("WALLET ADDRESS", walletAddressHere);
     console.log("CONTRACT OWNER", ownerAdd);
   }
-
-  // const getBalanceOfNGO = () => {
-  //   if (address) {
-  //     console.log(address, balance);
-  //   } else {
-  //     console.log("NO ADDRESS");
-  //   }
-  // };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -266,11 +257,11 @@ const DonateNow = ({ ngoData }) => {
   const [approvalHash, setApprovalHash] = useState(null);
   const [donationHash, setDonationHash] = useState(null);
 
-  // Helper function to update database records - Move this up
+  // Helper function to update database records
   const updateDatabaseRecords = useCallback(
     async (amount) => {
       const donationData = {
-        amount: amount,
+        amount: cryptoAmount,
         userId: auth.currentUser.uid,
         ngoId: ngoData.ngoId,
         name: onlineFormData?.name || "",
@@ -280,7 +271,7 @@ const DonateNow = ({ ngoData }) => {
         transactionType: "crypto",
       };
 
-      console.log("DONATIONDATA", donationData);
+      console.log("DONATIONDATA", donationData, ngoData.ngoId);
 
       try {
         await Promise.all([
@@ -338,6 +329,7 @@ const DonateNow = ({ ngoData }) => {
         functionName: "donate",
         args: [parsedAmount],
       });
+      toast.success("Donation transaction submitted!");
       setDonationHash(hash);
     } catch (error) {
       toast.error("Donation failed: " + error.message);
@@ -362,6 +354,7 @@ const DonateNow = ({ ngoData }) => {
         functionName: "approve",
         args: [ngoData?.donationsData?.ngoOwnerAddContract, parsedAmount],
       });
+      toast.success("Approval transaction submitted!");
       setApprovalHash(hash);
     } catch (error) {
       toast.error("Approval failed: " + error.message);
@@ -388,16 +381,17 @@ const DonateNow = ({ ngoData }) => {
   // Watch for approval success and trigger donation
   useEffect(() => {
     if (approvalSuccess) {
-      toast.success("Token approval successful!");
-      handleDonate();
+      toast.success("Approved the Amount");
+      handleDonate(); // Automatically call donate after approval
     }
   }, [approvalSuccess, handleDonate]);
 
   // Watch for donation success and update database
   useEffect(() => {
     if (donationSuccess) {
-      toast.success("Donation successful!");
+      toast.success("Donated to the NGO");
       updateDatabaseRecords(parsedAmount);
+      setCryptoAmount(""); // Reset the input field
     }
   }, [donationSuccess, parsedAmount, updateDatabaseRecords]);
 
@@ -406,6 +400,7 @@ const DonateNow = ({ ngoData }) => {
       e.preventDefault();
       handleApprove();
       handleDonate();
+      updateDatabaseRecords();
     },
     [handleApprove, handleDonate]
   );
@@ -432,9 +427,6 @@ const DonateNow = ({ ngoData }) => {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-8">
           <div>
-            {/* <button onClick={getBalanceOfNGO}>Get DATA</button> */}
-            {/* <span>{isPending ? "Pending" : balance.toString()}</span>
-            <span>{isPending ? "Pending" : balError}</span> */}
             <h2>Donate Online</h2>
             {!userType || userType !== "user" ? (
               <p>Login with User Creds to Donate.</p>
@@ -599,7 +591,7 @@ const DonateNow = ({ ngoData }) => {
                     ? "Approving..."
                     : isDonating
                       ? "Donating..."
-                      : "Donate NGC"}
+                      : "Approve NGC"}
                 </Button>
               </form>
             </div>

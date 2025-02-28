@@ -14,6 +14,23 @@ import { useWriteContract, useReadContract } from "wagmi";
 import { SuperAdminABI } from "@/constants/contract";
 
 const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
+  const [donationsData, setDonationsData] = useState({
+    razorpayKeyId: "",
+    razorpayKeySecret: "",
+    isBankTransferEnabled: false,
+    isCryptoTransferEnabled: false,
+    cryptoWalletAddress: walletAddress,
+    bankTransferDetails: {
+      accountHolderName: "",
+      bankName: "",
+      branchNameAddress: "",
+      accountNumber: "",
+      accountType: "",
+      ifscCode: "",
+    },
+    acknowledgmentMessage: "",
+  });
+
   const { data: hash, isPending, writeContract } = useWriteContract();
   const { address: walletAddress, isConnected } = useAccount();
 
@@ -35,25 +52,6 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
       : ngoOwnerAddContract;
 
   console.log("NGO OWNER ADDRESS", ngoOwnerAddContract);
-
-  const [donationsData, setDonationsData] = useState({
-    razorpayKeyId: "",
-    razorpayKeySecret: "",
-    isBankTransferEnabled: false,
-    isCryptoTransferEnabled: false,
-    cryptoWalletAddress: walletAddress,
-    bankTransferDetails: {
-      accountHolderName: "",
-      bankName: "",
-      branchNameAddress: "",
-      accountNumber: "",
-      accountType: "",
-      ifscCode: "",
-    },
-    acknowledgmentMessage: "",
-  });
-
-  // Contract Address SuperAdmin - 0x0d6520f87a7c18bf10972a4E47F99338DE64B2B8
 
   useEffect(() => {
     const unsubscribe = onSnapshot(doc(db, "ngo", ngoId), (doc) => {

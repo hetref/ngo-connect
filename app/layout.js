@@ -31,15 +31,15 @@ export default function RootLayout({ children }) {
                   {children}
                 </main>
               </div>
+            </AuthProvider>
           </WebProvider>
-        </AuthProvider>
-      </ThemeProvider>
-      <Toaster />
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="beforeInteractive"
-      />
-    </body>
+        </ThemeProvider>
+        <Toaster />
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="beforeInteractive"
+        />
+      </body>
     </html >
   );
 }

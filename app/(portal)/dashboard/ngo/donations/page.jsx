@@ -6,6 +6,7 @@ import { DonorsTable } from "@/components/donors-table";
 
 import CashDonation from "@/components/ngo/CashDonation";
 import { CashDonationTable } from "@/components/CashDonationTable";
+import { ResDonationTable } from "@/components/ResDonationTable";
 
 export default function NGODonationsPage() {
   return (
@@ -25,6 +26,7 @@ export default function NGODonationsPage() {
           <TabsList>
             <TabsTrigger value="donors">Donors</TabsTrigger>
             <TabsTrigger value="cash">Cash</TabsTrigger>
+            <TabsTrigger value="resources">Resources</TabsTrigger>
             <TabsTrigger value="payouts">Payouts</TabsTrigger>
             <TabsTrigger value="transactions">Transactions</TabsTrigger>
           </TabsList>
@@ -35,6 +37,10 @@ export default function NGODonationsPage() {
 
           <TabsContent value="cash">
             <CashDonationTable />
+          </TabsContent>
+
+          <TabsContent value="resources">
+            <ResDonationTable />
           </TabsContent>
 
           <TabsContent value="payouts">

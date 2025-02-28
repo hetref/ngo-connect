@@ -16,7 +16,7 @@ import {
   MoveUpRight,
 } from "lucide-react";
 import { PayoutManagement } from "@/components/payout-management";
-import Image from 'next/image';
+import Image from "next/image";
 
 import {
   getFirestore,
@@ -238,7 +238,7 @@ export default function NGOActivitiesPage() {
               </div>
               <div className="flex items-center space-x-2">
                 <Users className="h-5 w-5" />
-                <span>{activity.coordinator}</span>
+                <span>{activity.contactEmail}</span>
               </div>
             </div>
             <div className="space-y-4 text-gray-700">

@@ -25,6 +25,13 @@ import {
   uploadBytesResumable,
 } from "firebase/storage";
 import toast from "react-hot-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
   const [ngoProfile, setNgoProfile] = useState({
@@ -33,6 +40,9 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     registrationNumber: "",
     description: "",
     phone: "",
+    type: "",
+    customType: "",
+    categories: [], // Changed from single category to categories array
     email: "",
     website: "",
     pan: "",
@@ -47,6 +57,36 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     vision: "",
   });
   const [errors, setErrors] = useState({});
+  const [showCustomType, setShowCustomType] = useState(false);
+
+  // NGO Types and Categories mapping
+  const ngoTypesAndCategories = {
+    "Child Welfare Organizations": [
+      "Foster Care Programs",
+      "Early Childhood Development (ECD)",
+      "Holistic Child Rehabilitation",
+      "Vulnerable Child Protection Initiatives",
+    ],
+    "Environmental Conservation Organizations": [
+      "Sustainable Development Programs",
+      "Climate Resilience & Adaptation Strategies",
+      "Biodiversity & Ecosystem Conservation",
+      "Renewable Energy Advocacy",
+    ],
+    "Public Health & Medical Relief Organizations": [
+      "Epidemic & Pandemic Preparedness",
+      "Maternal & Child Health (MCH) Programs",
+      "Disease Prevention & Control Campaigns",
+      "Mental Health & Psychosocial Support (MHPSS)",
+    ],
+    "Educational Empowerment Organizations": [
+      "Literacy & Numeracy Enhancement Programs",
+      "Inclusive & Equitable Education Initiatives",
+      "Digital & Technological Skill-building",
+      "Vocational & Workforce Readiness Programs",
+    ],
+    Other: [],
+  };
 
   const shouldDisableInputs =
     (verificationStatus === "verified" && approvalStatus === "verified") ||
@@ -59,10 +99,18 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     const docRef = doc(db, "ngo", userId);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
       if (docSnap.exists()) {
+        const data = docSnap.data();
         setNgoProfile((prevProfile) => ({
           ...prevProfile,
-          ...docSnap.data(),
+          ...data,
+          // Ensure categories is an array
+          categories: data.categories || (data.category ? [data.category] : []),
         }));
+
+        // Check if type is "Other" to show custom type field
+        if (data.type === "Other") {
+          setShowCustomType(true);
+        }
       }
     });
 
@@ -91,6 +139,20 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     if (!ngoProfile.state?.trim()) newErrors.state = "State is required";
     if (!ngoProfile.district?.trim())
       newErrors.district = "District is required";
+    if (!ngoProfile.type?.trim()) newErrors.type = "NGO Type is required";
+    if (ngoProfile.type === "Other" && !ngoProfile.customType?.trim())
+      newErrors.customType = "Custom NGO Type is required";
+    if (ngoProfile.type === "Other" && !ngoProfile.customCategory?.trim())
+      newErrors.customCategory = "Custom NGO Category is required";
+
+    // Check categories only for "Other" type
+    if (
+      ngoProfile.type === "Other" &&
+      (!ngoProfile.categories || ngoProfile.categories.length === 0)
+    ) {
+      newErrors.categories = "At least one category is required";
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -113,11 +175,61 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     }
   };
 
+  const handleTypeChange = (value) => {
+    setShowCustomType(value === "Other");
+
+    // When type changes, automatically assign all categories for that type
+    setNgoProfile((prevProfile) => {
+      const updatedProfile = {
+        ...prevProfile,
+        type: value,
+        customType: value === "Other" ? prevProfile.customType : "",
+      };
+
+      // If non-Other type, assign all categories from that type
+      if (value !== "Other") {
+        updatedProfile.categories = [...ngoTypesAndCategories[value]];
+        updatedProfile.customCategory = "";
+      } else {
+        // For "Other" type, keep existing custom categories or empty array
+        updatedProfile.categories = prevProfile.categories;
+      }
+
+      return updatedProfile;
+    });
+
+    if (errors.type) {
+      setErrors({ ...errors, type: undefined });
+    }
+  };
+
+  const handleCustomCategoryChange = (value) => {
+    setNgoProfile((prevProfile) => ({
+      ...prevProfile,
+      customCategory: value,
+      categories: value ? [value] : [],
+    }));
+
+    if (errors.customCategory) {
+      setErrors({ ...errors, customCategory: undefined });
+    }
+  };
+
   const handleSaveChanges = async () => {
     const toasting = toast.loading("Saving changes...");
     if (validateInputs()) {
-      console.log(ngoProfile);
       let logoFileUrl = ngoProfile.logoUrl;
+
+      // Prepare the profile data to save
+      const profileToSave = { ...ngoProfile };
+
+      // If type is "Other", use the customType as the actual type in the database
+      if (profileToSave.type === "Other") {
+        profileToSave.displayType = profileToSave.customType; // Store custom type in a new field for display
+      } else {
+        profileToSave.displayType = profileToSave.type; // Standard type
+      }
+
       if (ngoProfile.logoFile) {
         const logoRef = ref(storage, `ngo/${userId}/logo`);
         if (ngoProfile.logoUrl && ngoProfile.logoUrl.startsWith("https")) {
@@ -154,7 +266,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
 
             // Proceed with saving the profile
             const filteredProfile = Object.fromEntries(
-              Object.entries(ngoProfile).filter(
+              Object.entries(profileToSave).filter(
                 ([key, value]) => value !== null && value !== ""
               )
             );
@@ -181,7 +293,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
       } else {
         // If no logo file, proceed with saving the profile
         const filteredProfile = Object.fromEntries(
-          Object.entries(ngoProfile).filter(
+          Object.entries(profileToSave).filter(
             ([key, value]) => value !== null && value !== ""
           )
         );
@@ -284,7 +396,103 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.name && <p className="text-red-500">{errors.name}</p>}
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="registration-number">Registration Number</Label>
+            <Label htmlFor="ngo-type">NGO Type</Label>
+            <Select
+              id="ngo-type"
+              value={ngoProfile?.type || ""}
+              onValueChange={handleTypeChange}
+              className="border-gray-300"
+              required
+              disabled={shouldDisableInputs}
+              title={shouldDisableInputs ? pendingTitle : ""}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Select NGO Type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Child Welfare Organizations">
+                  Child Welfare Organizations
+                </SelectItem>
+                <SelectItem value="Environmental Conservation Organizations">
+                  Environmental Conservation Organizations
+                </SelectItem>
+                <SelectItem value="Public Health & Medical Relief Organizations">
+                  Public Health & Medical Relief Organizations
+                </SelectItem>
+                <SelectItem value="Educational Empowerment Organizations">
+                  Educational Empowerment Organizations
+                </SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+            {errors.type && <p className="text-red-500">{errors.type}</p>}
+          </div>
+
+          {/* Custom Type Input - only shown when "Other" is selected */}
+          {showCustomType && (
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="custom-type">Specify NGO Type</Label>
+              <Input
+                id="custom-type"
+                value={ngoProfile?.customType || ""}
+                onChange={(e) =>
+                  handleInputChange("customType", e.target.value)
+                }
+                className="border-gray-300"
+                required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
+                placeholder="Enter your NGO type"
+              />
+              {errors.customType && (
+                <p className="text-red-500">{errors.customType}</p>
+              )}
+            </div>
+          )}
+
+          {/* Custom Category Input - only shown when "Other" is selected for type */}
+          {showCustomType && (
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="custom-category">Specify NGO Category</Label>
+              <Input
+                id="custom-category"
+                value={ngoProfile?.customCategory || ""}
+                onChange={(e) => handleCustomCategoryChange(e.target.value)}
+                className="border-gray-300"
+                required
+                disabled={shouldDisableInputs}
+                title={shouldDisableInputs ? pendingTitle : ""}
+                placeholder="Enter your NGO category for activities"
+              />
+              {errors.customCategory && (
+                <p className="text-red-500">{errors.customCategory}</p>
+              )}
+            </div>
+          )}
+
+          {/* Display the categories that will be stored (for user information) */}
+          {ngoProfile.type &&
+            ngoProfile.categories &&
+            ngoProfile.categories.length > 0 && (
+              <div className="space-y-2 md:col-span-2">
+                <Label>Categories (automatically assigned)</Label>
+                <div className="p-3 bg-gray-50 rounded-md">
+                  {ngoProfile.categories.map((category, index) => (
+                    <span
+                      key={index}
+                      className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded mr-2 mb-2"
+                    >
+                      {category}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+          <div className="space-y-2 md:col-span-2">
+            <Label htmlFor="registration-number">
+              Darpan Registration Number
+            </Label>
             <Input
               id="registration-number"
               value={ngoProfile?.registrationNumber || ""}
@@ -405,10 +613,6 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
                 disabled={shouldDisableInputs}
                 title={shouldDisableInputs ? pendingTitle : ""}
               />
-              {/* TODO: Add the Set Location using MAP Feature */}
-              {/* <Button variant="outline">
-                <MapPin className="mr-2 h-4 w-4" /> Set on Map
-              </Button> */}
             </div>
           </div>
           <div className="space-y-2">

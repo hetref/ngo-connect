@@ -1,5 +1,5 @@
 // const twilio = require('twilio');
-import twilio from 'twilio';
+import twilio from "twilio";
 
 const accountSid = process.env.TWILIO_ACCOUNT_SID; // Your Account SID
 const authToken = process.env.TWILIO_AUTH_TOKEN; // Your Auth Token
@@ -13,7 +13,7 @@ export async function POST(req) {
 
     const message = await client.messages.create({
       to: `+91${to}`,
-      from: "+16193617899",
+      from: "+12344145236",
       body,
     });
     console.log("MESSAGE", message);

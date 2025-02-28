@@ -79,7 +79,7 @@ const MemberVerificationPage = () => {
       );
       const user = userCredential.user;
 
-      const memberRef = doc(db, "ngo", ngoId, "members", email);
+      const memberRef = doc(db, "ngo", ngoId, "members", memberData.id);
       const userRef = doc(db, "users", user.uid);
 
       await runTransaction(db, async (transaction) => {
@@ -95,22 +95,31 @@ const MemberVerificationPage = () => {
           throw new Error("Verification code not found.");
         }
 
+        // Update the member document
         transaction.update(memberRef, {
-          status: "registered",
+          status: "active",
           verificationCode: deleteField(),
           userId: user.uid,
         });
 
+        // Create the user document with all necessary data
         transaction.set(userRef, {
           email: user.email,
           uid: user.uid,
           type: "ngo",
           role: "member",
           ngoId: ngoId,
+          displayName: memberData.name || "",
+          phoneNumber: memberData.phone || "",
+          createdAt: new Date(),
+          memberSince: new Date(),
+          memberId: memberData.id,
+          accessLevel: memberData.accessLevel,
         });
       });
 
-      router.push("/dashboard/member");
+      toast.success("Registration successful!");
+      router.push("/dashboard/ngo");
     } catch (err) {
       console.error("Error during signup:", err);
       setError(err.message || "Failed to sign up. Please try again.");

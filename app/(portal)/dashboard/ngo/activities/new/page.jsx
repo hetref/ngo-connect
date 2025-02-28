@@ -305,11 +305,13 @@ const page = () => {
             required
           >
             <option value="">Select Coordinator</option>
-            {members.map((member) => (
-              <option key={member.userId} value={member.userId}>
-                {member.email}
-              </option>
-            ))}
+            {members
+              .filter((member) => member.status === "registered")
+              .map((member) => (
+                <option key={member.userId} value={member.userId}>
+                  {member.email}
+                </option>
+              ))}
           </select>
         </div>
         <div>

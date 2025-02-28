@@ -5,6 +5,7 @@ import FloatingNavbar from "@/components/floating-navbar";
 import { cn } from "@/lib/utils";
 import { Footer } from "@/components/footer";
 import Script from "next/script";
+import { AuthProvider } from "@/context/AuthContext";
 import WebProvider from "@/providers/WebProvider"
 
 export const metadata = {
@@ -24,19 +25,21 @@ export default function RootLayout({ children }) {
           disableTransitionOnChange
         >
           <WebProvider>
-            <div className="relative flex min-h-screen flex-col">
-            <main className="flex-1">
-              {children}
-            </main>
-          </div>
+            <AuthProvider>
+              <div className="relative flex min-h-screen flex-col">
+                <main className="flex-1">
+                  {children}
+                </main>
+              </div>
           </WebProvider>
-        </ThemeProvider>
-        <Toaster />
-        <Script
-          src="https://checkout.razorpay.com/v1/checkout.js"
-          strategy="beforeInteractive"
-        />
-      </body>
-    </html>
+        </AuthProvider>
+      </ThemeProvider>
+      <Toaster />
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="beforeInteractive"
+      />
+    </body>
+    </html >
   );
 }

@@ -132,6 +132,10 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
             <div className="my-4 border-t border-gray-200" />
           )}
           {type === "ngo" && renderNavItems(navConfig.financeNavItems)}
+          {type === "ngo" && isOpen && (
+            <div className="my-4 border-t border-gray-200" />
+          )}
+          {type === "ngo" && renderNavItems(navConfig.ProductNavItems)}
         </div>
         <div className="mt-auto">
           {isOpen && <div className="my-4 border-t border-gray-200" />}

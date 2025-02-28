@@ -13,6 +13,7 @@ import { auth, db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/loading/Loading";
+import { ResDonationTable } from "@/components/ResDonationTable";
 
 export default function NGODonationsPage() {
   const [user, setUser] = useState(null);
@@ -92,6 +93,7 @@ export default function NGODonationsPage() {
         <TabsList>
           <TabsTrigger value="donors">Donors</TabsTrigger>
           <TabsTrigger value="cash">Cash</TabsTrigger>
+          <TabsTrigger value="resources">Resources</TabsTrigger>
           <TabsTrigger value="payouts">Payouts</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
@@ -101,7 +103,6 @@ export default function NGODonationsPage() {
         </TabsContent>
 
         <TabsContent value="cash">
-          <CashDonation />
           <CashDonationTable />
         </TabsContent>
 

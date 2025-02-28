@@ -5,6 +5,7 @@ import FloatingNavbar from "@/components/floating-navbar";
 import { cn } from "@/lib/utils";
 import { Footer } from "@/components/footer";
 import Script from "next/script";
+import WebProvider from "@/providers/WebProvider"
 
 export const metadata = {
   title: "NGO-Connect",
@@ -21,13 +22,14 @@ export default function RootLayout({ children }) {
           defaultTheme="system"
           enableSystem
           disableTransitionOnChange
-
         >
-          <div className="relative flex min-h-screen flex-col">
+          <WebProvider>
+            <div className="relative flex min-h-screen flex-col">
             <main className="flex-1">
               {children}
             </main>
           </div>
+          </WebProvider>
         </ThemeProvider>
         <Toaster />
         <Script

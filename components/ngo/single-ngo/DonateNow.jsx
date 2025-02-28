@@ -14,6 +14,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendWhatsappMessage } from "@/lib/whatsappMessages";
+import { NGOABI } from "@/constants/contract";
+import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
+import { useReadContract } from "wagmi";
 
 const DonateNow = ({ ngoData }) => {
   const [isOnlineModalOpen, setIsOnlineModalOpen] = useState(false);
@@ -31,6 +34,32 @@ const DonateNow = ({ ngoData }) => {
     wantsCertificate: false,
   });
   const [userType, setUserType] = useState(null);
+  const { address: walletAddressHere } = useAccount();
+  const {
+    data: ownerAdd,
+    error: ownerError,
+    isPending,
+  } = useReadContract({
+    address: "0xA9e16ceB44396d23070aCa557a589D82A1f833ee",
+    abi: NGOABI,
+    functionName: "owner",
+    args: ["0x9b7628C6890D8b154A2aCe32A3e11B54a87Dd78B"],
+  });
+
+  if(isPending) {
+    console.log("PENDING CALL")
+  } else {
+    console.log("ADDRESS", walletAddressHere);
+    console.log("OWNER", ownerAdd);
+  }
+
+  // const getBalanceOfNGO = () => {
+  //   if (address) {
+  //     console.log(address, balance);
+  //   } else {
+  //     console.log("NO ADDRESS");
+  //   }
+  // };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -224,6 +253,9 @@ const DonateNow = ({ ngoData }) => {
       >
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-8">
           <div>
+            {/* <button onClick={getBalanceOfNGO}>Get DATA</button> */}
+            {/* <span>{isPending ? "Pending" : balance.toString()}</span>
+            <span>{isPending ? "Pending" : balError}</span> */}
             <h2>Donate Online</h2>
             {!userType || userType !== "user" ? (
               <p>Login with User Creds to Donate.</p>

@@ -14,7 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { doc, getDoc, setDoc, updateDoc, increment } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { sendWhatsappMessage } from "@/lib/whatsappMessages";
-import { NGOABI } from "@/constants/contract";
+import { NGOABI, SuperAdminABI } from "@/constants/contract";
 import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
 import { useReadContract } from "wagmi";
 
@@ -40,17 +40,16 @@ const DonateNow = ({ ngoData }) => {
     error: ownerError,
     isPending,
   } = useReadContract({
-    address: "0xA9e16ceB44396d23070aCa557a589D82A1f833ee",
+    address: "0x910e2B3bA649E2787322344724BDF0868Cb23DB0",
     abi: NGOABI,
-    functionName: "owner",
-    args: ["0x9b7628C6890D8b154A2aCe32A3e11B54a87Dd78B"],
+    functionName: "availableBalance",
   });
 
-  if(isPending) {
-    console.log("PENDING CALL")
+  if (isPending) {
+    console.log("PENDING CALL");
   } else {
-    console.log("ADDRESS", walletAddressHere);
-    console.log("OWNER", ownerAdd);
+    console.log("WALLET ADDRESS", walletAddressHere);
+    console.log("CONTRACT OWNER", ownerAdd);
   }
 
   // const getBalanceOfNGO = () => {

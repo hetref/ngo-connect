@@ -8,7 +8,8 @@ import { Calendar, MapPin, Plus, Users } from "lucide-react";
 import { MetricsOverview } from "@/components/metrics-overview";
 import { auth, db } from "@/lib/firebase";
 import { doc, getDoc, getFirestore, onSnapshot } from "firebase/firestore";
-import Image from "next/image";
+import Image from 'next/image';
+
 
 export default function NGOActivitiesPage() {
   const [activities, setActivities] = useState([]);

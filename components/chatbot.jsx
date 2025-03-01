@@ -145,7 +145,7 @@ export default function Chatbot() {
             ref={chatIconRef}
             onClick={toggleChat}
             size="icon"
-            className="rounded-full size-14 p-2 shadow-lg"
+            className="rounded-full size-14 p-2 shadow-lg bg-[#1CAC78] text-white hover:bg-[#1cac77a7]"
           >
             {!isChatOpen ? (
               <MessageCircle className="size-7" />

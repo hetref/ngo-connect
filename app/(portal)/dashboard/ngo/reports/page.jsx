@@ -1,21 +1,37 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Button } from "@/components/ui/button"
-import { FileText, Mail, Clock } from "lucide-react"
-import DonationReports from "@/components/reports/donation-reports"
-import ActivitiesReports from "@/components/reports/activities-reports"
-import MemberReports from "@/components/reports/member-reports"
-import GraphGenerator from "@/components/reports/graph-generator"
-import { PDFDownloadLink } from "@react-pdf/renderer"
-import PDFTemplate from "@/components/reports/pdf-template"
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { FileText, Mail, Clock } from "lucide-react";
+import DonationReports from "@/components/reports/donation-reports";
+import ActivitiesReports from "@/components/reports/activities-reports";
+import MemberReports from "@/components/reports/member-reports";
+import GraphGenerator from "@/components/reports/graph-generator";
+import { PDFDownloadLink } from "@react-pdf/renderer";
+import PDFTemplate from "@/components/reports/pdf-template";
+import Loading from "@/components/loading/Loading";
+import { useRouter } from "next/navigation";
+import { doc, getDoc } from "firebase/firestore";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged } from "firebase/auth";
 
 export default function NGOReportsPage() {
-  const [timeFrame, setTimeFrame] = useState("1month")
-  const [isExporting, setIsExporting] = useState(false)
+  const [user, setUser] = useState(null);
+  const [accessGranted, setAccessGranted] = useState(false);
+  const [initialized, setInitialized] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [timeFrame, setTimeFrame] = useState("1month");
+  const [isExporting, setIsExporting] = useState(false);
   const [reportData, setReportData] = useState({
     timeFrame: "1month",
     donations: {
@@ -36,21 +52,76 @@ export default function NGOReportsPage() {
       totalMembers: 500,
       newMembers: 50,
     },
-  })
+  });
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      if (currentUser) {
+        checkAccess(currentUser.uid);
+      } else {
+        // No user is signed in, redirect to login
+        router.replace("/login");
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   const handleExportPDF = () => {
     setIsExporting(true);
     // The actual download will be handled by PDFDownloadLink
-  }
+  };
 
   const handleShareReport = () => {
     // Placeholder for report sharing functionality
-    console.log("Sharing report...")
-  }
+    console.log("Sharing report...");
+  };
 
   const handleScheduleReport = () => {
     // Placeholder for report scheduling functionality
-    console.log("Scheduling report...")
+    console.log("Scheduling report...");
+  };
+  const checkAccess = async (uid) => {
+    try {
+      const userDoc = await getDoc(doc(db, "users", uid));
+
+      if (!userDoc.exists()) {
+        router.replace("/login");
+        return;
+      }
+
+      const userData = userDoc.data();
+
+      // If user is level1 member, redirect them
+      if (
+        userData.type === "ngo" &&
+        userData.role === "member" &&
+        userData.accessLevel === "level1"
+      ) {
+        router.replace("/dashboard/ngo");
+        return;
+      }
+
+      // Access is granted, allow the component to render
+      setAccessGranted(true);
+      setInitialized(true);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error checking access:", error);
+      router.replace("/login");
+    }
+  };
+
+  // Render loading state until we've checked access
+  if (loading) {
+    return <Loading />;
+  }
+
+  // Only render the component if access is granted
+  if (!accessGranted) {
+    return null;
   }
 
   return (
@@ -79,8 +150,8 @@ export default function NGOReportsPage() {
             fileName={`NGO_Report_${timeFrame}.pdf`}
           >
             {({ blob, url, loading, error }) => (
-              <Button 
-                onClick={handleExportPDF} 
+              <Button
+                onClick={handleExportPDF}
                 disabled={loading || isExporting}
               >
                 <FileText className="mr-2 h-4 w-4" />
@@ -122,6 +193,5 @@ export default function NGOReportsPage() {
         </TabsContent>
       </Tabs>
     </motion.div>
-  )
+  );
 }
-

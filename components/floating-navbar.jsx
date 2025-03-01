@@ -18,9 +18,45 @@ import Link from "next/link";
 import Image from "next/image";
 import logoRect from "@/assets/logo/rectangle-logo.png";
 import { auth } from "@/lib/firebase";
+// import { useRouter } from "next/navigation";
+// import ConnectWalletButton from "./metamask/ConnectWalletButton";
+// import { MetaMaskProvider } from "@metamask/sdk-react";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
+import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
 
 export default function FloatingNavbar({ className }) {
   const { setTheme, theme } = useTheme();
+  const router = useRouter();
+  const { address } = useAccount();
+
+  const [userStatus, setUserStatus] = useState(null);
+
+  // const host =
+  //   typeof window !== "undefined" ? window.location.host : "defaultHost";
+
+  // const sdkOptions = {
+  //   logging: { developerMode: false },
+  //   checkInstallationImmediately: false,
+  //   dappMetadata: {
+  //     name: "Next-Metamask-Boilerplate",
+  //     url: host, // using the host constant defined above
+  //   },
+  // };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        setUserStatus(true);
+      } else {
+        setUserStatus(false);
+      }
+      console.log("USER", user);
+    });
+
+    return () => unsubscribe();
+  }, [router, auth]);
 
   return (
     <>
@@ -128,14 +164,22 @@ export default function FloatingNavbar({ className }) {
       </nav>
 
       <div className="fixed top-4 right-4 z-50 flex gap-4">
-        {auth?.currentUser?.uid ? (
-          <Link
-            href="/dashboard"
-            className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
-          >
-            Dashboard
-          </Link>
-        ) : (
+        {userStatus === true && (
+          <>
+            <Link
+              href="/dashboard"
+              className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+            >
+              Dashboard
+            </Link>
+            {/* <MetaMaskProvider debug={false} sdkOptions={sdkOptions}>
+              <ConnectWalletButton />
+            </MetaMaskProvider> */}
+            {address && <span>{address}</span>}
+            <ConnectButton />
+          </>
+        )}
+        {userStatus === false && (
           <>
             <Link
               href="/register"

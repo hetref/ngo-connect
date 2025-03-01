@@ -11,12 +11,33 @@ import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
 import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
 import { useState, useEffect } from "react";
+import { useReadContract } from "wagmi";
+import { NGOABI } from "@/constants/contract";
+import { formatEther } from "viem";
 
 const NGOSettingsPage = () => {
   const userId = auth.currentUser.uid;
   const [ngoProfile, setNgoProfile] = useState(null);
   const [approvalStatus, setApprovalStatus] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState(null);
+
+  const {
+    data: ngoBalance,
+    error: ngoBalanceError,
+    isPending: ngoBalancePending,
+  } = useReadContract({
+    address: ngoProfile?.donationsData?.ngoOwnerAddContract || undefined,
+    abi: NGOABI,
+    functionName: "getAvailableBalance",
+    enabled: Boolean(ngoProfile?.donationsData?.ngoOwnerAddContract),
+  });
+
+  console.log(
+    "NGO Contract Address:",
+    ngoProfile?.donationsData?.ngoOwnerAddContract
+  );
+  console.log("NGO Balance:", ngoBalance);
+
   // const [darkMode, setDarkMode] = useState(false);
 
   // Effect to handle dark mode
@@ -119,30 +140,44 @@ const NGOSettingsPage = () => {
     >
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">NGO Settings</h1>
-        {verificationStatus === "verified" ? (
-          <div className="flex items-center justify-center gap-3">
-            <div className="text-green-600 font-semibold px-4 py-2 bg-green-100 rounded-full">
-              Profile Verified ✓
+        <div>
+          {verificationStatus === "verified" ? (
+            <div className="flex items-center justify-center gap-3">
+              <div className="text-green-600 font-semibold px-4 py-2 bg-green-100 rounded-full">
+                Profile Verified ✓
+              </div>
+              <Button
+                className="rounded-full bg-yellow-600 hover:bg-yellow-700"
+                onClick={handleSwitchToEditingMode}
+              >
+                Edit Profile
+              </Button>
             </div>
+          ) : approvalStatus === "pending" &&
+            verificationStatus === "pending" ? (
+            <div className="text-yellow-600 font-semibold px-4 py-2 bg-yellow-100 rounded-full">
+              Profile is in process to be verified
+            </div>
+          ) : (
             <Button
               className="rounded-full bg-yellow-600 hover:bg-yellow-700"
-              onClick={handleSwitchToEditingMode}
+              onClick={handleVerifyProfile}
             >
-              Edit Profile
+              Verify Profile
             </Button>
-          </div>
-        ) : approvalStatus === "pending" && verificationStatus === "pending" ? (
-          <div className="text-yellow-600 font-semibold px-4 py-2 bg-yellow-100 rounded-full">
-            Profile is in process to be verified
-          </div>
-        ) : (
-          <Button
-            className="rounded-full bg-yellow-600 hover:bg-yellow-700"
-            onClick={handleVerifyProfile}
-          >
-            Verify Profile
-          </Button>
-        )}
+          )}
+          {ngoProfile?.donationsData?.isCryptoTransferEnabled &&
+            ngoProfile?.donationsData?.ngoOwnerAddContract && (
+              <div className="text-green-600 font-semibold px-4 py-2 bg-green-100 rounded-full">
+                Balance:{" "}
+                {ngoBalancePending
+                  ? "Loading..."
+                  : ngoBalanceError
+                    ? "Error loading balance"
+                    : `${formatEther(ngoBalance || 0n)} NGC`}
+              </div>
+            )}
+        </div>
       </div>
 
       {/* Add Awards & Recognitions Tab where the NGO can add the Awards and Recognition they received */}

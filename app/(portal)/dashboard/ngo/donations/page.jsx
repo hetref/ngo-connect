@@ -27,6 +27,7 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import toast from "react-hot-toast";
 import { parseUnits } from "ethers";
+import ResourcesDonation from "@/components/ngo/ResourcesDonation";
 
 export default function NGODonationsPage() {
   const [user, setUser] = useState(null);
@@ -176,6 +177,8 @@ export default function NGODonationsPage() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
+        <ResourcesDonation />
+        <CashDonation />
         <div className="flex items-center gap-4">
           {ngoProfile?.donationsData?.isCryptoTransferEnabled &&
             ngoProfile?.donationsData?.ngoOwnerAddContract && (
@@ -235,6 +238,10 @@ export default function NGODonationsPage() {
 
         <TabsContent value="cash">
           <CashDonationTable />
+        </TabsContent>
+
+        <TabsContent value="resources">
+          <ResDonationTable />
         </TabsContent>
 
         <TabsContent value="payouts">

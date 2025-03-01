@@ -51,7 +51,7 @@ export default function LoginPage() {
   return (
     <div className="max-w-md w-full mx-auto rounded-none md:rounded-2xl p-4 md:p-8 bg-white dark:bg-black shadow-[0_8px_30px_rgb(0,0,0,0.12)] dark:shadow-[0_8px_30px_rgba(255,255,255,0.1)] transform hover:translate-y-[-2px] transition-all duration-300 ease-in-out border border-gray-200 dark:border-gray-800">
       <h2 className="font-bold text-xl text-neutral-800 dark:text-neutral-200">
-        Welcome back to NGO-Connect
+        Welcome to NGO-Connect
       </h2>
       <p className="text-neutral-600 dark:text-neutral-400 text-sm mt-2">
         Please sign in to continue

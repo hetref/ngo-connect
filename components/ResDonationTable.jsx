@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Card,
   CardContent,
@@ -27,17 +27,17 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { 
-  onSnapshot, 
-  collection, 
-  doc, 
-  updateDoc, 
-  addDoc, 
+import {
+  onSnapshot,
+  collection,
+  doc,
+  updateDoc,
+  addDoc,
   setDoc,
   serverTimestamp,
   query,
   where,
-  getDocs
+  getDocs,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/context/AuthContext";
@@ -57,7 +57,7 @@ export function ResDonationTable() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  
+
   // Form states for edit functionality
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
@@ -73,8 +73,10 @@ export function ResDonationTable() {
     donorPhone: "",
     resource: "",
     quantity: "",
-    status: "pending"
+    status: "pending",
   });
+
+  const [unsubscribers, setUnsubscribers] = useState([]);
 
   useEffect(() => {
     if (!ngoId) {
@@ -86,59 +88,100 @@ export function ResDonationTable() {
 
     setLoading(true);
     const currentYear = new Date().getFullYear().toString();
-    
-    console.log("Starting to fetch donations for NGO:", { ngoId, year: currentYear });
-    
+
+    console.log("Starting to fetch donations for NGO:", {
+      ngoId,
+      year: currentYear,
+    });
+
     // Create reference to the year collection
     const yearPath = `donations/${ngoId}/${currentYear}`;
     console.log("Year collection path:", yearPath);
-    
+
     try {
       // Get the year collection
       const yearRef = collection(db, yearPath);
-      
-      const unsubscribe = onSnapshot(yearRef, async (yearSnapshot) => {
-        console.log("Year collection snapshot received");
+
+      // Clear previous listeners
+      unsubscribers.forEach((unsub) => unsub());
+      setUnsubscribers([]);
+
+      const yearUnsubscribe = onSnapshot(yearRef, (yearSnapshot) => {
+        const newUnsubscribers = [];
         const allDonations = [];
-        
-        // Get all user subcollections in the year collection
-        for (const userDoc of yearSnapshot.docs) {
+
+        // Add this line to handle initial empty state
+        setLoading(true);
+
+        yearSnapshot.docs.forEach((userDoc) => {
           const userId = userDoc.id;
           console.log("Processing user:", userId);
-          
+
           try {
             // Get the resources subcollection for this user
-            const resourcesRef = collection(db, `${yearPath}/${userId}/resources`);
-            const resourcesSnap = await getDocs(resourcesRef);
-            
-            console.log(`Found ${resourcesSnap.docs.length} donations for user:`, userId);
-            
-            // Add each donation to our array
-            resourcesSnap.docs.forEach(doc => {
-              const donationData = doc.data();
-              allDonations.push({
-                id: doc.id,
-                userId,
-                ...donationData
-              });
-            });
+            const resourcesRef = collection(
+              db,
+              `${yearPath}/${userId}/resources`
+            );
+
+            const resourceUnsubscribe = onSnapshot(
+              resourcesRef,
+              (resourcesSnap) => {
+                // Add this check to handle empty resources
+                if (resourcesSnap.empty) {
+                  setLoading(false);
+                  return;
+                }
+
+                resourcesSnap.docChanges().forEach((change) => {
+                  if (change.type === "added" || change.type === "modified") {
+                    const donation = {
+                      id: change.doc.id,
+                      userId,
+                      ...change.doc.data(),
+                    };
+
+                    setDonations((prev) => [
+                      ...prev.filter((d) => d.id !== donation.id),
+                      donation,
+                    ]);
+                    console.log("DONATIONS", donations);
+                  }
+                  if (change.type === "removed") {
+                    setDonations((prev) =>
+                      prev.filter((d) => d.id !== change.doc.id)
+                    );
+                  }
+                });
+              }
+            );
+
+            newUnsubscribers.push(resourceUnsubscribe);
           } catch (error) {
-            console.error(`Error fetching resources for user ${userId}:`, error);
+            console.error(
+              `Error fetching resources for user ${userId}:`,
+              error
+            );
+            setLoading(false);
           }
+        });
+
+        // Add these lines to handle initial load completion
+        if (yearSnapshot.empty) {
+          setDonations([]);
+          setLoading(false);
+        } else {
+          setUnsubscribers((prev) => [...prev, ...newUnsubscribers]);
+          setLoading(false); // Add this line to ensure loading state is cleared
         }
-        
-        console.log("Final donations array:", allDonations);
-        setDonations(allDonations);
-        setLoading(false);
-      }, (error) => {
-        console.error("Error in year collection listener:", error);
-        setError("Failed to fetch donations: " + error.message);
-        setLoading(false);
       });
+
+      // Add year collection listener to unsubscribers
+      setUnsubscribers((prev) => [...prev, yearUnsubscribe]);
 
       return () => {
         console.log("Cleaning up year collection listener");
-        unsubscribe();
+        unsubscribers.forEach((unsub) => unsub());
       };
     } catch (err) {
       console.error("Error setting up year collection listener:", err);
@@ -173,21 +216,24 @@ export function ResDonationTable() {
       donorPhone: "",
       resource: "",
       quantity: "",
-      status: "pending"
+      status: "pending",
     });
     setAddModalOpen(true);
   };
 
   const handleSave = async () => {
     if (!ngoId || !selectedDonation?.userId || !selectedDonation?.id) {
-      console.error("Missing required IDs for update", { ngoId, donationId: selectedDonation?.id });
+      console.error("Missing required IDs for update", {
+        ngoId,
+        donationId: selectedDonation?.id,
+      });
       setError("Missing required information to update donation");
       return;
     }
 
     try {
       const currentYear = new Date().getFullYear().toString();
-      
+
       // Create updated donation object
       const updatedDonation = {
         donorName,
@@ -197,20 +243,20 @@ export function ResDonationTable() {
         quantity,
         status: "pending",
         reason: null,
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       };
-      
+
       console.log("Saving updated donation:", updatedDonation);
-      
+
       // Update Firestore document using the correct path
       const donationRef = doc(
-        db, 
+        db,
         `donations/${ngoId}/${currentYear}/${selectedDonation.userId}/resources`,
         selectedDonation.id
       );
-      
+
       await updateDoc(donationRef, updatedDonation);
-      
+
       // Close modal after successful update
       setEditModalOpen(false);
     } catch (error) {
@@ -221,35 +267,44 @@ export function ResDonationTable() {
 
   const handleAddDonation = async () => {
     if (!ngoId || !user?.uid) {
-      console.error("Missing required IDs for adding donation", { ngoId, userId: user?.uid });
+      console.error("Missing required IDs for adding donation", {
+        ngoId,
+        userId: user?.uid,
+      });
       setError("Missing required information to add donation");
       return;
     }
 
     try {
       const currentYear = new Date().getFullYear().toString();
-      
+
       // Add timestamp and user info to new donation
       const donationWithTimestamp = {
         ...newDonation,
         userId: user.uid,
-        date: new Date().toISOString().split('T')[0], // Format as YYYY-MM-DD
+        date: new Date().toISOString().split("T")[0], // Format as YYYY-MM-DD
         createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
+        updatedAt: serverTimestamp(),
       };
-      
+
       console.log("Adding new donation:", donationWithTimestamp);
-      
+
       // Create user document in year collection if it doesn't exist
-      const userDocRef = doc(db, `donations/${ngoId}/${currentYear}/${user.uid}`);
+      const userDocRef = doc(
+        db,
+        `donations/${ngoId}/${currentYear}/${user.uid}`
+      );
       await setDoc(userDocRef, { exists: true }, { merge: true });
-      
+
       // Add to the resources subcollection under the user
-      const resourcesRef = collection(db, `donations/${ngoId}/${currentYear}/${user.uid}/resources`);
+      const resourcesRef = collection(
+        db,
+        `donations/${ngoId}/${currentYear}/${user.uid}/resources`
+      );
       await addDoc(resourcesRef, donationWithTimestamp);
-      
+
       console.log("Successfully added new donation");
-      
+
       // Close modal after successful addition
       setAddModalOpen(false);
     } catch (error) {
@@ -260,9 +315,9 @@ export function ResDonationTable() {
 
   const handleNewDonationChange = (e) => {
     const { name, value } = e.target;
-    setNewDonation(prev => ({
+    setNewDonation((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
   };
 
@@ -273,26 +328,31 @@ export function ResDonationTable() {
           <CardTitle>Resource Donations</CardTitle>
           <CardDescription>View all resource donations here.</CardDescription>
         </div>
-        <Button 
-          onClick={openAddModal} 
-          className="ml-auto"
-          disabled={!ngoId}
-        >
+        <Button onClick={openAddModal} className="ml-auto" disabled={!ngoId}>
           <Plus className="mr-2 h-4 w-4" /> Add Donation
         </Button>
       </CardHeader>
       <CardContent className="space-y-4">
         {error && (
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <div
+            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
+            role="alert"
+          >
             <strong className="font-bold">Error: </strong>
             <span className="block sm:inline">{error}</span>
           </div>
         )}
-        
+
         {!ngoId && (
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4" role="alert">
+          <div
+            className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative mb-4"
+            role="alert"
+          >
             <strong className="font-bold">Warning: </strong>
-            <span className="block sm:inline">No NGO ID found. Please make sure you're logged in with an NGO account.</span>
+            <span className="block sm:inline">
+              No NGO ID found. Please make sure you're logged in with an NGO
+              account.
+            </span>
           </div>
         )}
 
@@ -308,7 +368,7 @@ export function ResDonationTable() {
               <TableHead>Donor</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Resource</TableHead>
-              <TableHead>Quantity</TableHead>   
+              <TableHead>Quantity</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Actions</TableHead>
@@ -317,65 +377,77 @@ export function ResDonationTable() {
           <TableBody>
             {loading ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-4 text-muted-foreground"
+                >
                   Loading donations...
                 </TableCell>
               </TableRow>
             ) : donations && donations.length > 0 ? (
               donations
-                .filter(transaction => 
-                  (transaction?.donorName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  (transaction?.donorEmail || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  (transaction?.resource || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  String(transaction?.quantity || "").includes(searchTerm)
+                .filter(
+                  (transaction) =>
+                    (transaction?.donorName || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase()) ||
+                    (transaction?.donorEmail || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase()) ||
+                    (transaction?.resource || "")
+                      .toLowerCase()
+                      .includes(searchTerm.toLowerCase()) ||
+                    String(transaction?.quantity || "").includes(searchTerm)
                 )
                 .map((transaction) => (
-                <TableRow key={transaction.id}>
-                  <TableCell>{transaction?.donorName}</TableCell>
-                  <TableCell>{transaction?.donorEmail}</TableCell>
-                  <TableCell>{transaction?.resource}</TableCell>
-                  <TableCell>{transaction?.quantity}</TableCell>    
-                  <TableCell>{transaction?.date}</TableCell>
-                  <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        transaction.status === "completed"
-                          ? "bg-green-100 text-green-800"
-                          : transaction.status === "rejected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {transaction?.status || "pending"}
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openViewModal(transaction)}
+                  <TableRow key={transaction.id}>
+                    <TableCell>{transaction?.donorName}</TableCell>
+                    <TableCell>{transaction?.donorEmail}</TableCell>
+                    <TableCell>{transaction?.resource}</TableCell>
+                    <TableCell>{transaction?.quantity}</TableCell>
+                    <TableCell>{transaction?.date}</TableCell>
+                    <TableCell>
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs ${
+                          transaction.status === "completed"
+                            ? "bg-green-100 text-green-800"
+                            : transaction.status === "rejected"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-yellow-100 text-yellow-800"
+                        }`}
                       >
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        onClick={() => openEditModal(transaction)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                        {transaction?.status || "pending"}
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openViewModal(transaction)}
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          onClick={() => openEditModal(transaction)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
             ) : (
               <TableRow>
-                <TableCell colSpan={7} className="text-center py-4 text-muted-foreground">
-                  {!ngoId ? 
-                    "NGO ID not available. Please make sure you're logged in." : 
-                    "No resource donations found. Add a donation to get started."
-                  }
+                <TableCell
+                  colSpan={7}
+                  className="text-center py-4 text-muted-foreground"
+                >
+                  {!ngoId
+                    ? "NGO ID not available. Please make sure you're logged in."
+                    : "No resource donations found. Add a donation to get started."}
                 </TableCell>
               </TableRow>
             )}
@@ -527,8 +599,8 @@ export function ResDonationTable() {
             <Button onClick={() => setEditModalOpen(false)} variant="outline">
               Cancel
             </Button>
-            <Button 
-              onClick={handleSave} 
+            <Button
+              onClick={handleSave}
               disabled={selectedDonation?.status !== "rejected"}
             >
               Save Changes
@@ -610,9 +682,7 @@ export function ResDonationTable() {
             <Button onClick={() => setAddModalOpen(false)} variant="outline">
               Cancel
             </Button>
-            <Button onClick={handleAddDonation}>
-              Add Donation
-            </Button>
+            <Button onClick={handleAddDonation}>Add Donation</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { onSnapshot, collection } from "firebase/firestore";
+import { onSnapshot, collection, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
 
@@ -72,19 +72,19 @@ export function CashDonationTable() {
   const openEditModal = (donation) => {
     console.log("DONATION", donation);
     setSelectedDonation(donation);
+    setDonorName(donation.donorName);
+    setDonorPhone(donation.donorPhone);
+    setAmount(donation.amount);
+    setReason(donation.reason || "");
     setEditModalOpen(true);
   };
 
   const handleSave = () => {
-    console.log("DONATION", selectedDonation);
-    const donationRef = doc(
-      collection(db, "donationApprovals"),
-      selectedDonation.id
-    );
+    const donationRef = doc(db, "donationApprovals", selectedDonation.id);
     updateDoc(donationRef, {
-      donorName: selectedDonation.donorName,
-      donorPhone: selectedDonation.donorPhone,
-      amount: selectedDonation.amount,
+      donorName: donorName,
+      donorPhone: donorPhone,
+      amount: amount,
       status: "pending",
       reason: null,
     });
@@ -211,45 +211,50 @@ export function CashDonationTable() {
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent>
           <DialogHeader>Edit Donation</DialogHeader>
-          {/* <DialogBody> */}
-          <div>
-            <label>Donor Name</label>
-            <input
-              type="text"
-              value={selectedDonation?.donorName}
-              onChange={(e) => setDonorName(e.target.value)}
-              disabled={selectedDonation?.status !== "rejected"} // Disable if not rejected
-            />
-          </div>
-          <div>
-            <label>Donor Phone</label>
-            <input
-              type="text"
-              value={selectedDonation?.donorPhone}
-              onChange={(e) => setDonorPhone(e.target.value)}
-              disabled={selectedDonation?.status !== "rejected"} // Disable if not rejected
-            />
-          </div>
-          <div>
-            <label>Amount</label>
-            <input
-              type="number"
-              value={selectedDonation?.amount}
-              onChange={(e) => setAmount(e.target.value)}
-              disabled={selectedDonation?.status !== "rejected"} // Disable if not rejected
-            />
-          </div>
-          {selectedDonation?.status === "rejected" && (
+          <div className="space-y-4">
             <div>
-              <label>Reason for Rejection</label>
-              <textarea
-                value={selectedDonation?.reason}
-                readOnly // Make it read-only if you don't want to allow editing
+              <label>Donor Name</label>
+              <Input
+                type="text"
+                value={donorName}
+                onChange={(e) => setDonorName(e.target.value)}
+                disabled={selectedDonation?.status !== "rejected"}
               />
             </div>
-          )}
-          <Button onClick={handleSave}>Save</Button>
-          <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <div>
+              <label>Donor Phone</label>
+              <Input
+                type="text"
+                value={donorPhone}
+                onChange={(e) => setDonorPhone(e.target.value)}
+                disabled={selectedDonation?.status !== "rejected"}
+              />
+            </div>
+            <div>
+              <label>Amount</label>
+              <Input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                disabled={selectedDonation?.status !== "rejected"}
+              />
+            </div>
+            {selectedDonation?.status === "rejected" && (
+              <div>
+                <label>Reason for Rejection</label>
+                <Input
+                  as="textarea"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  readOnly
+                />
+              </div>
+            )}
+            <div className="flex justify-end space-x-2">
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave}>Save</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Card>

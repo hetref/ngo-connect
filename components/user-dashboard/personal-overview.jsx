@@ -1,6 +1,6 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 
 export function PersonalOverview() {
   const user = {
@@ -14,12 +14,14 @@ export function PersonalOverview() {
       badgesEarned: 5,
       upcomingEvents: 2,
     },
-  }
+  };
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-xl md:text-2xl">Welcome back, {user.name}! Here's your impact summary.</CardTitle>
+        <CardTitle className="text-xl md:text-2xl">
+          Hello, {user.name}! Here's your impact summary.
+        </CardTitle>
       </CardHeader>
       <CardContent className="grid gap-6">
         <div className="flex flex-col sm:flex-row items-center space-y-4 sm:space-y-0 sm:space-x-4">
@@ -46,24 +48,39 @@ export function PersonalOverview() {
         </div>
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">✅ {user.stats.eventsVolunteered}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Events Volunteered</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              ✅ {user.stats.eventsVolunteered}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Events Volunteered
+            </span>
           </div>
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">❤️ ₹{user.stats.totalDonations.toLocaleString()}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Total Donations</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              ❤️ ₹{user.stats.totalDonations.toLocaleString()}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Total Donations
+            </span>
           </div>
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">🎖 {user.stats.badgesEarned}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Badges Earned</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              🎖 {user.stats.badgesEarned}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Badges Earned
+            </span>
           </div>
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">📅 {user.stats.upcomingEvents}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Upcoming Events</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              📅 {user.stats.upcomingEvents}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Upcoming Events
+            </span>
           </div>
         </div>
       </CardContent>
     </Card>
-  )
+  );
 }
-

@@ -87,7 +87,7 @@ export default function FloatingNavbar({ className }) {
         <NavigationMenu>
           <NavigationMenuList className="space-x-2">
             <NavigationMenuItem>
-              <NavigationMenuLink
+              <Link
                 className={navigationMenuTriggerStyle()}
                 href="/"
                 style={{
@@ -96,10 +96,10 @@ export default function FloatingNavbar({ className }) {
                 }}
               >
                 Home
-              </NavigationMenuLink>
+              </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuLink
+              <Link
                 className={navigationMenuTriggerStyle()}
                 href="/about"
                 style={{
@@ -108,10 +108,10 @@ export default function FloatingNavbar({ className }) {
                 }}
               >
                 About
-              </NavigationMenuLink>
+              </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuLink
+              <Link
                 className={navigationMenuTriggerStyle()}
                 href="/pricing"
                 style={{
@@ -120,10 +120,10 @@ export default function FloatingNavbar({ className }) {
                 }}
               >
                 Pricing
-              </NavigationMenuLink>
+              </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuLink
+              <Link
                 className={navigationMenuTriggerStyle()}
                 href="/contact"
                 style={{
@@ -132,10 +132,10 @@ export default function FloatingNavbar({ className }) {
                 }}
               >
                 Contact Us
-              </NavigationMenuLink>
+              </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
-              <NavigationMenuLink
+              <Link
                 className={navigationMenuTriggerStyle()}
                 href="/ngo"
                 style={{
@@ -144,7 +144,7 @@ export default function FloatingNavbar({ className }) {
                 }}
               >
                 NGO
-              </NavigationMenuLink>
+              </Link>
             </NavigationMenuItem>
             <NavigationMenuItem>
               <Button
@@ -175,7 +175,7 @@ export default function FloatingNavbar({ className }) {
             {/* <MetaMaskProvider debug={false} sdkOptions={sdkOptions}>
               <ConnectWalletButton />
             </MetaMaskProvider> */}
-            {address && <span>{address}</span>}
+            {/* {address && <span>{address}</span>} */}
             <ConnectButton />
           </>
         )}

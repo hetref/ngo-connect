@@ -340,57 +340,8 @@ export default function UserDonatePage() {
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Sponsored Events</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-4">
-            {sponsoredEvents.map((event) => (
-              <div key={event.id} className="flex items-center justify-between border-b pb-4">
-                <div>
-                  <h3 className="font-semibold">{event.name}</h3>
-                  <p className="text-sm text-gray-500">{event.ngo}</p>
-                  <p className="text-sm">Amount: ₹{event.amount}</p>
-                </div>
-                <div className="space-x-2">
-                  <Button variant="outline" size="sm">
-                    View Details
-                  </Button>
-                  <Button variant="outline" size="sm">
-                    <MessageCircle className="w-4 h-4 mr-2" />
-                    Chat with NGO
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Impact Report</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={impactData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="month" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="beneficiaries" stroke="#1CAC78" />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-          <p className="text-center mt-4 text-gray-500">Number of beneficiaries helped over time</p>
-        </CardContent>
-      </Card>
-
       <div className="text-center space-x-4">
         <Button className="bg-[#1CAC78] hover:bg-[#158f63]">Donate to a Cause Now!</Button>
-        <Button variant="outline">Find Events to Sponsor!</Button>
       </div>
     </motion.div>
   )

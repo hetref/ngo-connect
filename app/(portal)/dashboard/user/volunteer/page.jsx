@@ -78,7 +78,7 @@ export default function UserVolunteerPage() {
 
   const handleRedirect = () => {
     router.push("/dashboard/user/activities/search-activity");
-};
+  };
 
   // Function to extract timestamp from activity ID
   const getEventTimestamp = (activityId) => {

@@ -83,27 +83,6 @@ export function DonationInsights() {
             </ResponsiveContainer>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <h3 className="text-lg font-semibold mb-2">Sponsorship Contributions</h3>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>NGO</TableHead>
-                <TableHead>Amount</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {sponsorships.map((sponsorship) => (
-                <TableRow key={sponsorship.id}>
-                  <TableCell>{sponsorship.event}</TableCell>
-                  <TableCell>{sponsorship.ngo}</TableCell>
-                  <TableCell>₹{sponsorship.amount}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
         <Button className="w-full bg-[#1CAC78] hover:bg-[#158f63]">Find Causes to Support</Button>
       </CardContent>
     </Card>

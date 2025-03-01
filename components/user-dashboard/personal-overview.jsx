@@ -156,5 +156,4 @@ export function PersonalOverview() {
       </CardContent>
     </Card>
   );
-  );
 }

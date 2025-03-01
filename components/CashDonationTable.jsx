@@ -40,12 +40,12 @@ export function CashDonationTable() {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
 
-  const filteredTransactions = initialTransactions.filter(
-    (transaction) =>
-      transaction.donor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.amount.includes(searchTerm) ||
-      transaction.status.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTransactions = donations.filter(
+    (donation) =>
+      donation.donorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      donation.donorEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      donation.amount?.toString().includes(searchTerm) ||
+      donation.status?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -116,8 +116,7 @@ export function CashDonationTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {donations &&
-              donations.map((transaction) => (
+            {filteredTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>{transaction?.donorName}</TableCell>
                   <TableCell>{transaction?.donorEmail}</TableCell>

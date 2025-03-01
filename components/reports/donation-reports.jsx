@@ -2,8 +2,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts"
 import { useState, useEffect } from "react"
-import { onSnapshot, collection } from "firebase/firestore"
+import { onSnapshot, collection, query, getDocs, collectionGroup } from "firebase/firestore"
 import { db } from "@/lib/firebase"
+import { auth } from "@/lib/firebase"
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"]
 
@@ -16,50 +17,105 @@ export default function DonationReports({ timeFrame }) {
   })
 
   useEffect(() => {
-    const unsubscribe = onSnapshot(
-      collection(db, "donationApprovals"),
-      (snapshot) => {
-        const donationsData = snapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }))
-        setDonations(donationsData)
+    // Get current year
+    const currentYear = new Date().getFullYear().toString()
+    
+    const fetchDonations = async () => {
+      try {
+        const ngoId = auth.currentUser?.uid
+        if (!ngoId) {
+          console.log('No NGO ID found')
+          return
+        }
+
+        console.log('Fetching donations for NGO:', ngoId)
         
-        // Calculate statistics
-        const total = donationsData.reduce((sum, donation) => sum + Number(donation.amount || 0), 0)
+        let allDonations = []
+
+        // Fetch all cash donations using collectionGroup
+        const cashDonations = await getDocs(collectionGroup(db, 'cash'))
+        cashDonations.forEach(doc => {
+          // Only include donations that belong to this NGO and year
+          const path = doc.ref.path
+          if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+            allDonations.push({ id: doc.id, ...doc.data(), paymentMethod: 'Cash' })
+          }
+        })
+
+        // Fetch all online donations
+        const onlineDonations = await getDocs(collectionGroup(db, 'online'))
+        onlineDonations.forEach(doc => {
+          // Only include donations that belong to this NGO and year
+          const path = doc.ref.path
+          if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+            allDonations.push({ id: doc.id, ...doc.data(), paymentMethod: 'Online' })
+          }
+        })
+
+        // Fetch all crypto donations
+        const cryptoDonations = await getDocs(collectionGroup(db, 'crypto'))
+        cryptoDonations.forEach(doc => {
+          // Only include donations that belong to this NGO and year
+          const path = doc.ref.path
+          if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+            allDonations.push({ id: doc.id, ...doc.data(), paymentMethod: 'Crypto' })
+          }
+        })
+
+        console.log('Raw Donations Data:', allDonations)
+        setDonations(allDonations)
+        
+        // Calculate statistics (excluding crypto)
+        const total = allDonations
+          .filter(donation => donation.paymentMethod !== 'Crypto')
+          .reduce((sum, donation) => sum + Number(donation.amount || 0), 0)
+        console.log('Total Donations (excluding crypto):', total)
         
         // Calculate breakdown by payment method
-        const methodBreakdown = donationsData.reduce((acc, donation) => {
+        const methodBreakdown = allDonations.reduce((acc, donation) => {
           const method = donation.paymentMethod || "Other"
           acc[method] = (acc[method] || 0) + Number(donation.amount || 0)
           return acc
         }, {})
+        console.log('Payment Method Breakdown:', methodBreakdown)
         
         const breakdown = Object.entries(methodBreakdown).map(([method, amount]) => ({
           method,
           amount
         }))
+        console.log('Formatted Breakdown Data:', breakdown)
 
-        // Get top donors
-        const topDonors = [...donationsData]
+        // Get top donors (excluding crypto)
+        const topDonors = [...allDonations]
+          .filter(donation => donation.paymentMethod !== 'Crypto')
           .sort((a, b) => Number(b.amount) - Number(a.amount))
           .slice(0, 3)
           .map(donor => ({
-            name: donor.donorName,
+            name: donor.name || donor.donorName,
             amount: Number(donor.amount),
-            date: donor.date
+            date: donor.timestamp || donor.donatedOn
           }))
+        console.log('Top Donors:', topDonors)
 
-        setDonationStats({
+        const stats = {
           total,
           breakdown,
           topDonors
-        })
+        }
+        console.log('Final Donation Stats:', stats)
+        setDonationStats(stats)
+      } catch (error) {
+        console.error('Error fetching donations:', error)
       }
-    )
+    }
 
-    return () => unsubscribe()
+    fetchDonations()
   }, [])
+
+  // Filter functions for different donation types
+  const cashDonations = donations.filter(d => d.paymentMethod === 'Cash')
+  const onlineDonations = donations.filter(d => d.paymentMethod === 'Online')
+  const cryptoDonations = donations.filter(d => d.paymentMethod === 'Crypto')
 
   return (
     <div className="space-y-6">
@@ -80,12 +136,18 @@ export default function DonationReports({ timeFrame }) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {donationStats.breakdown.map((item, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{item.method}</TableCell>
-                      <TableCell>₹{item.amount.toLocaleString()}</TableCell>
-                    </TableRow>
-                  ))}
+                  {donationStats.breakdown
+                    .map((item, index) => (
+                      <TableRow key={index}>
+                        <TableCell>{item.method}</TableCell>
+                        <TableCell>
+                          {item.method === 'Crypto' 
+                            ? item.amount.toLocaleString()  // No ₹ symbol for crypto
+                            : `₹${item.amount.toLocaleString()}`  // Keep ₹ for other methods
+                          }
+                        </TableCell>
+                      </TableRow>
+                    ))}
                 </TableBody>
               </Table>
             </div>
@@ -95,7 +157,7 @@ export default function DonationReports({ timeFrame }) {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={donationStats.breakdown}
+                      data={donationStats.breakdown.filter(item => item.method !== 'Crypto')}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -103,9 +165,11 @@ export default function DonationReports({ timeFrame }) {
                       fill="#8884d8"
                       dataKey="amount"
                     >
-                      {donationStats.breakdown.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
+                      {donationStats.breakdown
+                        .filter(item => item.method !== 'Crypto')
+                        .map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
                     </Pie>
                     <Legend />
                   </PieChart>
@@ -118,7 +182,7 @@ export default function DonationReports({ timeFrame }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Recent Donations</CardTitle>
+          <CardTitle>Cash Donations</CardTitle>
         </CardHeader>
         <CardContent>
           <Table>
@@ -128,29 +192,76 @@ export default function DonationReports({ timeFrame }) {
                 <TableHead>Amount</TableHead>
                 <TableHead>Date</TableHead>
                 <TableHead>Method</TableHead>
-                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {donations.slice(0, 5).map((donation, index) => (
+              {cashDonations.slice(0, 5).map((donation, index) => (
                 <TableRow key={donation.id}>
-                  <TableCell>{donation.donorName}</TableCell>
+                  <TableCell>{donation.name}</TableCell>
                   <TableCell>₹{Number(donation.amount).toLocaleString()}</TableCell>
-                  <TableCell>{donation.date}</TableCell>
-                  <TableCell>{donation.paymentMethod || "Other"}</TableCell>
+                  <TableCell>{donation.donatedOn}</TableCell>
+                  <TableCell>{donation.paymentMethod}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>UPI Donations</CardTitle>
+        </CardHeader>   
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Amount</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Method</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {onlineDonations.slice(0, 5).map((donation, index) => (
+                <TableRow key={donation.id}>
+                  <TableCell>{donation.name}</TableCell>
+                  <TableCell>₹{Number(donation.amount).toLocaleString()}</TableCell>
                   <TableCell>
-                    <span
-                      className={`px-2 py-1 rounded-full text-xs ${
-                        donation.status === "approved"
-                          ? "bg-green-100 text-green-800"
-                          : donation.status === "rejected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-yellow-100 text-yellow-800"
-                      }`}
-                    >
-                      {donation.status}
-                    </span>
+                    {donation.id ? new Date(donation.id).toISOString().split('T')[0] : 'No date'}
                   </TableCell>
+                  <TableCell>{donation.paymentMethod}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Cryptocurrency Donations</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Tokens</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Method</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cryptoDonations.slice(0, 5).map((donation, index) => (
+                <TableRow key={donation.id}>
+                  <TableCell>{donation.name}</TableCell>
+                  <TableCell>{donation.amount}</TableCell>
+                  <TableCell>
+                    {donation.id ? new Date(donation.id).toISOString().split('T')[0] : 'No date'}
+                  </TableCell>
+                  <TableCell>{donation.paymentMethod}</TableCell>
+                  
                 </TableRow>
               ))}
             </TableBody>

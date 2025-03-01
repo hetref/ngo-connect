@@ -498,6 +498,12 @@ export const NGOABI = [
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "bool",
+        "name": "storedInContract",
+        "type": "bool"
       }
     ],
     "name": "DonationReceived",
@@ -599,6 +605,11 @@ export const NGOABI = [
         "internalType": "uint256",
         "name": "amount",
         "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "storeInContract",
+        "type": "bool"
       }
     ],
     "name": "donate",

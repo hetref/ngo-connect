@@ -20,7 +20,7 @@ import {
   QrCode,
   Search,
 } from "lucide-react";
-import { MetricsOverview } from "@/components/metrics-overview";
+import { MetricsOverview } from "@/components/ngo-dashboard/metrics-overview";
 import { auth, db } from "@/lib/firebase";
 import {
   doc,

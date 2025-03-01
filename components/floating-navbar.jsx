@@ -1,231 +1,222 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
-import {
-  NavigationMenu,
-  NavigationMenuContent,
-  NavigationMenuItem,
-  NavigationMenuLink,
-  NavigationMenuList,
-  NavigationMenuTrigger,
-  navigationMenuTriggerStyle,
-} from "@/components/ui/navigation-menu";
-import { MoonIcon, SunIcon } from "@radix-ui/react-icons";
-import { useTheme } from "next-themes";
 import Link from "next/link";
 import Image from "next/image";
-import logoRect from "@/assets/logo/rectangle-logo.png";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Menu, X, Plus } from "lucide-react";
 import { auth } from "@/lib/firebase";
-// import { useRouter } from "next/navigation";
-// import ConnectWalletButton from "./metamask/ConnectWalletButton";
-// import { MetaMaskProvider } from "@metamask/sdk-react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
-import { onAuthStateChanged } from "firebase/auth";
+import { onAuthStateChanged, signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
+import { ConnectButton } from "@rainbow-me/rainbowkit";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-export default function FloatingNavbar({ className }) {
-  const { setTheme, theme } = useTheme();
+export default function Navbar() {
   const router = useRouter();
-  const { address } = useAccount();
-
-  const [userStatus, setUserStatus] = useState(null);
-
-  // const host =
-  //   typeof window !== "undefined" ? window.location.host : "defaultHost";
-
-  // const sdkOptions = {
-  //   logging: { developerMode: false },
-  //   checkInstallationImmediately: false,
-  //   dappMetadata: {
-  //     name: "Next-Metamask-Boilerplate",
-  //     url: host, // using the host constant defined above
-  //   },
-  // };
+  const [user, setUser] = useState(null);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        setUserStatus(true);
+        setUser(user);
       } else {
-        setUserStatus(false);
+        setUser(null);
       }
-      console.log("USER", user);
     });
 
     return () => unsubscribe();
-  }, [router, auth]);
+  }, []);
+
+  const logoutHandler = async () => {
+    try {
+      await signOut(auth);
+      router.push("/");
+    } catch (error) {
+      console.error("Logout Error:", error);
+    }
+  };
+
+  const navItems = [
+    { title: "Home", href: "/" },
+    { title: "About", href: "/about" },
+    { title: "Pricing", href: "/pricing" },
+    { title: "Contact", href: "/contact" },
+    { title: "NGO", href: "/ngo" },
+  ];
 
   return (
-    <>
-      <div className="fixed top-4 left-4 z-50">
-        <Link
-          href="/"
-          className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-emerald-500 to-blue-500"
-        >
-          <Image
-            src={logoRect}
-            alt="NGO-Connect"
-            width={600}
-            height={600}
-            className="h-[80px] w-fit"
-          />
-        </Link>
+    <header className="fixed top-0 w-full z-50 bg-background/80 backdrop-blur-sm border-b border-border">
+      <div className="container mx-auto px-4">
+        <div className="flex h-16 items-center justify-between">
+          {/* Logo - Left side */}
+          <Link href="/" className="flex items-center">
+            <Image
+              src="/logo.png"
+              alt="NGO-Connect"
+              width={150}
+              height={40}
+              className="h-10 w-auto"
+            />
+            <span className="text-xl font-semibold ml-2">NGO Connect</span>
+          </Link>
+
+          {/* Mobile Menu Button */}
+          <button
+            className="md:hidden flex items-center"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? (
+              <X className="h-6 w-6" />
+            ) : (
+              <Menu className="h-6 w-6" />
+            )}
+          </button>
+
+          {/* Right side container for nav + auth */}
+          <div className="hidden md:flex items-center space-x-4">
+            {/* Navigation - Now on the right side */}
+            <nav className="flex items-center space-x-1">
+              {navItems.map((item) => (
+                <Link
+                  key={item.title}
+                  href={item.href}
+                  className="px-3 py-2 text-sm font-medium rounded-md hover:bg-accent transition-colors"
+                >
+                  {item.title}
+                </Link>
+              ))}
+            </nav>
+
+            {/* Auth Buttons */}
+            {user ? (
+              <>
+                {/* User Actions */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" className="flex items-center gap-2">
+                      <Plus className="h-5 w-5" />
+                      <span className="hidden sm:block">Create</span>
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem asChild>
+                      <Link href="/create-post">Create Post</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/add-photos">Add Photos</Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
+                      <Link href="/add-product">Add Product</Link>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <Link
+                  href="/dashboard"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+                >
+                  Dashboard
+                </Link>
+
+                <ConnectButton />
+
+                <Button
+                  onClick={logoutHandler}
+                  variant="outline"
+                  className="rounded-full"
+                >
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className={cn(
+                    "px-4 py-2 rounded-full font-medium transition-colors",
+                    "border-2 border-foreground/20",
+                    "text-foreground",
+                    "hover:bg-foreground/10"
+                  )}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-4 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </div>
+        </div>
       </div>
 
-      <nav
-        className={cn(
-          "fixed top-4 left-1/2 transform -translate-x-1/2 z-50",
-          "bg-background/80 backdrop-blur-sm rounded-full",
-          "border border-border shadow-lg",
-          "p-2",
-          className
-        )}
-      >
-        <NavigationMenu>
-          <NavigationMenuList className="space-x-2">
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                className={navigationMenuTriggerStyle()}
-                href="/"
-                style={{
-                  backgroundColor: "transparent",
-                  color: theme === "dark" ? "white" : "black",
-                }}
+      {/* Mobile Menu */}
+      {isMenuOpen && (
+        <div className="md:hidden p-4 bg-background border-t border-border">
+          <nav className="flex flex-col space-y-3">
+            {navItems.map((item) => (
+              <Link
+                key={item.title}
+                href={item.href}
+                className="px-3 py-2 text-sm font-medium rounded-md hover:bg-accent transition-colors"
+                onClick={() => setIsMenuOpen(false)}
               >
-                Home
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                className={navigationMenuTriggerStyle()}
-                href="/about"
-                style={{
-                  backgroundColor: "transparent",
-                  color: theme === "dark" ? "white" : "black",
-                }}
-              >
-                About
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                className={navigationMenuTriggerStyle()}
-                href="/pricing"
-                style={{
-                  backgroundColor: "transparent",
-                  color: theme === "dark" ? "white" : "black",
-                }}
-              >
-                Pricing
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                className={navigationMenuTriggerStyle()}
-                href="/contact"
-                style={{
-                  backgroundColor: "transparent",
-                  color: theme === "dark" ? "white" : "black",
-                }}
-              >
-                Contact Us
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <NavigationMenuLink
-                className={navigationMenuTriggerStyle()}
-                href="/ngo"
-                style={{
-                  backgroundColor: "transparent",
-                  color: theme === "dark" ? "white" : "black",
-                }}
-              >
-                NGO
-              </NavigationMenuLink>
-            </NavigationMenuItem>
-            <NavigationMenuItem>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              >
-                {theme === "dark" ? (
-                  <SunIcon className="h-[1.2rem] w-[1.2rem]" />
-                ) : (
-                  <MoonIcon className="h-[1.2rem] w-[1.2rem]" />
-                )}
-              </Button>
-            </NavigationMenuItem>
-          </NavigationMenuList>
-        </NavigationMenu>
-      </nav>
+                {item.title}
+              </Link>
+            ))}
 
-      <div className="fixed top-4 right-4 z-50 flex gap-4">
-        {userStatus === true && (
-          <>
-            <Link
-              href="/dashboard"
-              className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
-            >
-              Dashboard
-            </Link>
-            {/* <MetaMaskProvider debug={false} sdkOptions={sdkOptions}>
-              <ConnectWalletButton />
-            </MetaMaskProvider> */}
-            {address && <span>{address}</span>}
-            <ConnectButton />
-          </>
-        )}
-        {userStatus === false && (
-          <>
-            <Link
-              href="/register"
-              className="px-6 py-2 bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-full font-medium hover:opacity-90 transition-opacity"
-            >
-              Sign Up
-            </Link>
-            <Link
-              href="/login"
-              className={cn(
-                "px-6 py-2 rounded-full font-medium transition-colors",
-                "border-2 border-foreground/20",
-                "text-foreground",
-                "hover:bg-foreground/10"
-              )}
-            >
-              Sign In
-            </Link>
-          </>
-        )}
-      </div>
-    </>
+            {/* Auth Buttons (Mobile) */}
+            {user ? (
+              <>
+                <Link
+                  href="/dashboard"
+                  className="px-3 py-2 text-sm font-medium bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-md hover:opacity-90 transition-opacity"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Dashboard
+                </Link>
+                <Button
+                  onClick={() => {
+                    logoutHandler();
+                    setIsMenuOpen(false);
+                  }}
+                  variant="outline"
+                  className="w-full justify-start"
+                >
+                  Sign Out
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="px-3 py-2 text-sm font-medium border border-foreground/20 rounded-md text-foreground hover:bg-foreground/10 transition-colors"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Sign In
+                </Link>
+                <Link
+                  href="/register"
+                  className="px-3 py-2 text-sm font-medium bg-gradient-to-r from-emerald-500 to-blue-500 text-white rounded-md hover:opacity-90 transition-opacity"
+                  onClick={() => setIsMenuOpen(false)}
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
+          </nav>
+        </div>
+      )}
+    </header>
   );
 }
-
-const ListItem = React.forwardRef(
-  ({ className, title, children, ...props }, ref) => {
-    return (
-      <li>
-        <NavigationMenuLink asChild>
-          <a
-            ref={ref}
-            className={cn(
-              "block select-none space-y-1 rounded-md p-3 leading-none no-underline outline-none transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground",
-              className
-            )}
-            {...props}
-          >
-            <div className="text-sm font-medium leading-none">{title}</div>
-            <p className="line-clamp-2 text-sm leading-snug text-muted-foreground">
-              {children}
-            </p>
-          </a>
-        </NavigationMenuLink>
-      </li>
-    );
-  }
-);
-ListItem.displayName = "ListItem";

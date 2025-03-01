@@ -24,36 +24,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { onSnapshot, collection } from "firebase/firestore";
+import { onSnapshot, collection, doc, updateDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-// Sample transaction data
-const initialTransactions = [
-  {
-    id: 1,
-    donor: "John Doe",
-    amount: "$100.00",
-    date: "2024-02-20",
-    status: "Completed",
-    email: "john@example.com",
-  },
-  {
-    id: 2,
-    donor: "Jane Smith",
-    amount: "$250.00",
-    date: "2024-02-19",
-    status: "Completed",
-    email: "jane@example.com",
-  },
-  {
-    id: 3,
-    donor: "Alice Johnson",
-    amount: "$500.00",
-    date: "2024-02-18",
-    status: "Pending",
-    email: "alice@example.com",
-  },
-];
 
 export function CashDonationTable() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,12 +40,12 @@ export function CashDonationTable() {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
 
-  const filteredTransactions = initialTransactions.filter(
-    (transaction) =>
-      transaction.donor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.amount.includes(searchTerm) ||
-      transaction.status.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTransactions = donations.filter(
+    (donation) =>
+      donation.donorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      donation.donorEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      donation.amount?.toString().includes(searchTerm) ||
+      donation.status?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -99,19 +72,19 @@ export function CashDonationTable() {
   const openEditModal = (donation) => {
     console.log("DONATION", donation);
     setSelectedDonation(donation);
+    setDonorName(donation.donorName);
+    setDonorPhone(donation.donorPhone);
+    setAmount(donation.amount);
+    setReason(donation.reason || "");
     setEditModalOpen(true);
   };
 
   const handleSave = () => {
-    console.log("DONATION", selectedDonation);
-    const donationRef = doc(
-      collection(db, "donationApprovals"),
-      selectedDonation.id
-    );
+    const donationRef = doc(db, "donationApprovals", selectedDonation.id);
     updateDoc(donationRef, {
-      donorName: selectedDonation.donorName,
-      donorPhone: selectedDonation.donorPhone,
-      amount: selectedDonation.amount,
+      donorName: donorName,
+      donorPhone: donorPhone,
+      amount: amount,
       status: "pending",
       reason: null,
     });
@@ -143,8 +116,7 @@ export function CashDonationTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {donations &&
-              donations.map((transaction) => (
+            {filteredTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>{transaction?.donorName}</TableCell>
                   <TableCell>{transaction?.donorEmail}</TableCell>
@@ -239,45 +211,50 @@ export function CashDonationTable() {
       <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
         <DialogContent>
           <DialogHeader>Edit Donation</DialogHeader>
-          {/* <DialogBody> */}
-          <div>
-            <label>Donor Name</label>
-            <input
-              type="text"
-              value={selectedDonation?.donorName}
-              onChange={(e) => setDonorName(e.target.value)}
-              disabled={selectedDonation?.status !== "rejected"} // Disable if not rejected
-            />
-          </div>
-          <div>
-            <label>Donor Phone</label>
-            <input
-              type="text"
-              value={selectedDonation?.donorPhone}
-              onChange={(e) => setDonorPhone(e.target.value)}
-              disabled={selectedDonation?.status !== "rejected"} // Disable if not rejected
-            />
-          </div>
-          <div>
-            <label>Amount</label>
-            <input
-              type="number"
-              value={selectedDonation?.amount}
-              onChange={(e) => setAmount(e.target.value)}
-              disabled={selectedDonation?.status !== "rejected"} // Disable if not rejected
-            />
-          </div>
-          {selectedDonation?.status === "rejected" && (
+          <div className="space-y-4">
             <div>
-              <label>Reason for Rejection</label>
-              <textarea
-                value={selectedDonation?.reason}
-                readOnly // Make it read-only if you don't want to allow editing
+              <label>Donor Name</label>
+              <Input
+                type="text"
+                value={donorName}
+                onChange={(e) => setDonorName(e.target.value)}
+                disabled={selectedDonation?.status !== "rejected"}
               />
             </div>
-          )}
-          <Button onClick={handleSave}>Save</Button>
-          <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <div>
+              <label>Donor Phone</label>
+              <Input
+                type="text"
+                value={donorPhone}
+                onChange={(e) => setDonorPhone(e.target.value)}
+                disabled={selectedDonation?.status !== "rejected"}
+              />
+            </div>
+            <div>
+              <label>Amount</label>
+              <Input
+                type="number"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                disabled={selectedDonation?.status !== "rejected"}
+              />
+            </div>
+            {selectedDonation?.status === "rejected" && (
+              <div>
+                <label>Reason for Rejection</label>
+                <Input
+                  as="textarea"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  readOnly
+                />
+              </div>
+            )}
+            <div className="flex justify-end space-x-2">
+              <Button onClick={() => setEditModalOpen(false)}>Cancel</Button>
+              <Button onClick={handleSave}>Save</Button>
+            </div>
+          </div>
         </DialogContent>
       </Dialog>
     </Card>

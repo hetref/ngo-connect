@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FileText, Mail, Clock } from "lucide-react";
-import DonationReports from "@/components/reports/donation-reports";
+import DonationReports from "@/components/reports/donations/donation-reports";
 // import ActivitiesReports from "@/components/reports/activities/activities-reports";
 import MemberReports from "@/components/reports/member-reports";
 import GraphGenerator from "@/components/reports/graph-generator";
@@ -151,7 +151,7 @@ export default function NGOReportsPage() {
         <TabsList>
           <TabsTrigger value="donations">Donations</TabsTrigger>
           <TabsTrigger value="activities">Activities</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
+          {/* <TabsTrigger value="members">Members</TabsTrigger> */}
           <TabsTrigger value="graphs">Graph Generator</TabsTrigger>
         </TabsList>
 
@@ -163,9 +163,9 @@ export default function NGOReportsPage() {
           <ActivitiesReports timeFrame={timeFrame} />
         </TabsContent>
 
-        <TabsContent value="members">
+        {/* <TabsContent value="members">
           <MemberReports timeFrame={timeFrame} />
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="graphs">
           <GraphGenerator timeFrame={timeFrame} />

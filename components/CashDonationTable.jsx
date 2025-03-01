@@ -27,33 +27,6 @@ import {
 import { onSnapshot, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-// Sample transaction data
-const initialTransactions = [
-  {
-    id: 1,
-    donor: "John Doe",
-    amount: "$100.00",
-    date: "2024-02-20",
-    status: "Completed",
-    email: "john@example.com",
-  },
-  {
-    id: 2,
-    donor: "Jane Smith",
-    amount: "$250.00",
-    date: "2024-02-19",
-    status: "Completed",
-    email: "jane@example.com",
-  },
-  {
-    id: 3,
-    donor: "Alice Johnson",
-    amount: "$500.00",
-    date: "2024-02-18",
-    status: "Pending",
-    email: "alice@example.com",
-  },
-];
 
 export function CashDonationTable() {
   const [searchTerm, setSearchTerm] = useState("");
@@ -67,12 +40,12 @@ export function CashDonationTable() {
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
 
-  const filteredTransactions = initialTransactions.filter(
-    (transaction) =>
-      transaction.donor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      transaction.amount.includes(searchTerm) ||
-      transaction.status.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredTransactions = donations.filter(
+    (donation) =>
+      donation.donorName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      donation.donorEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      donation.amount?.toString().includes(searchTerm) ||
+      donation.status?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   useEffect(() => {
@@ -143,8 +116,7 @@ export function CashDonationTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {donations &&
-              donations.map((transaction) => (
+            {filteredTransactions.map((transaction) => (
                 <TableRow key={transaction.id}>
                   <TableCell>{transaction?.donorName}</TableCell>
                   <TableCell>{transaction?.donorEmail}</TableCell>

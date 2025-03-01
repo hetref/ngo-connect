@@ -33,6 +33,7 @@ import { db, auth } from "@/lib/firebase";
 // import { PDFDownloadLink } from "@react-pdf/renderer";
 import ActivityReportPDF from "./activity-report-pdf";
 import { PDFDownloadLink } from "@react-pdf/renderer";
+import { Skeleton } from "@/components/ui/skeleton"
 
 export default function ActivitiesReports({ timeFrame }) {
   const [loading, setLoading] = useState(true);
@@ -275,8 +276,52 @@ export default function ActivitiesReports({ timeFrame }) {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        Loading activities data...
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              <div>Activities Overview</div>
+              <Skeleton className="h-10 w-[120px]" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-8 w-48 mb-4" />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Skeleton className="h-6 w-40 mb-4" />
+                <div className="space-y-2">
+                  {[1, 2, 3, 4].map((i) => (
+                    <Skeleton key={i} className="h-12 w-full" />
+                  ))}
+                </div>
+              </div>
+              <div>
+                <Skeleton className="h-6 w-40 mb-4" />
+                <Skeleton className="h-[300px] w-full" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>
+              <Skeleton className="h-6 w-40" />
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Skeleton className="h-6 w-40 mb-2" />
+                <Skeleton className="h-10 w-32" />
+              </div>
+              <div>
+                <Skeleton className="h-6 w-40 mb-2" />
+                <Skeleton className="h-10 w-32" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
     );
   }

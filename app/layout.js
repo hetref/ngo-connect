@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { Footer } from "@/components/footer";
 import Script from "next/script";
 import { AuthProvider } from "@/context/AuthContext";
+import WebProvider from "@/providers/WebProvider"
 
 export const metadata = {
   title: "NGO-Connect",
@@ -23,13 +24,15 @@ export default function RootLayout({ children }) {
           enableSystem
           disableTransitionOnChange
         >
-          <AuthProvider>
-            <div className="relative flex min-h-screen flex-col">
-              <main className="flex-1">
-                {children}
-              </main>
-            </div>
-          </AuthProvider>
+          <WebProvider>
+            <AuthProvider>
+              <div className="relative flex min-h-screen flex-col">
+                <main className="flex-1">
+                  {children}
+                </main>
+              </div>
+            </AuthProvider>
+          </WebProvider>
         </ThemeProvider>
         <Toaster />
         <Script
@@ -37,6 +40,6 @@ export default function RootLayout({ children }) {
           strategy="beforeInteractive"
         />
       </body>
-    </html>
+    </html >
   );
 }

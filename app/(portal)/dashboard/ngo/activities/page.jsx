@@ -166,7 +166,7 @@ export default function NGOActivitiesPage() {
                     </div>
                     <div className="mt-2 flex items-center space-x-2 text-sm text-gray-500">
                       <Users className="h-4 w-4" />
-                      <span>{activity.coordinator}</span>
+                      <span>{activity.contactEmail}</span>
                     </div>
                   </CardContent>
                 </Card>

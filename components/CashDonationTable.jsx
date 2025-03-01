@@ -27,33 +27,6 @@ import {
 import { onSnapshot, collection } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
-// Sample transaction data
-const initialTransactions = [
-  {
-    id: 1,
-    donor: "John Doe",
-    amount: "$100.00",
-    date: "2024-02-20",
-    status: "Completed",
-    email: "john@example.com",
-  },
-  {
-    id: 2,
-    donor: "Jane Smith",
-    amount: "$250.00",
-    date: "2024-02-19",
-    status: "Completed",
-    email: "jane@example.com",
-  },
-  {
-    id: 3,
-    donor: "Alice Johnson",
-    amount: "$500.00",
-    date: "2024-02-18",
-    status: "Pending",
-    email: "alice@example.com",
-  },
-];
 
 export function CashDonationTable() {
   const [searchTerm, setSearchTerm] = useState("");

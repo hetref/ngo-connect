@@ -177,11 +177,6 @@ const ActivityFormsPage = () => {
       : setShowParticipantDialog(true);
   };
 
-  const handleDeleteEmail = (index) => {
-    const updatedEmails = emailInvitations.filter((_, i) => i !== index);
-    setEmailInvitations(updatedEmails);
-  };
-
   const FormCard = ({ title, formType, status }) => {
     const isVolunteerForm = formType === "volunteer";
     const currentCount =
@@ -299,52 +294,6 @@ const ActivityFormsPage = () => {
           </Link>
         </div>
       </div> */}
-
-      <div className="space-y-4">
-        <Button onClick={() => setShowEmailInput(!showEmailInput)}>
-          {showEmailInput
-            ? "Hide Email Input"
-            : "Add Email Invitations / On-Site Entries"}
-        </Button>
-
-        {showEmailInput && (
-          <div className="flex flex-col gap-4">
-            <div className="flex gap-2 items-center">
-              <Input
-                type="email"
-                value={newEmail}
-                onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="Enter email"
-                className="max-w-md"
-              />
-              <Button onClick={handleAddEmail}>Add Email</Button>
-            </div>
-            {emailInvitations.length > 0 && (
-              <Button onClick={handleSendInvitations}>Send Invitations</Button>
-            )}
-          </div>
-        )}
-
-        {emailInvitations.length > 0 && (
-          <div className="mt-4">
-            <h3 className="text-lg font-semibold mb-2">Added Emails:</h3>
-            <ul className="space-y-2 max-w-md">
-              {emailInvitations.map((email, index) => (
-                <li
-                  key={index}
-                  className="bg-gray-100 rounded-lg px-4 py-2 flex justify-between items-center"
-                >
-                  {email}
-                  <Trash
-                    className="h-4 w-4 cursor-pointer text-red-500 hover:text-red-700"
-                    onClick={() => handleDeleteEmail(index)}
-                  />
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
 
       <AlertDialog
         open={showVolunteerDialog}

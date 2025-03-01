@@ -46,7 +46,6 @@ const NavConfig = {
       icon: ReceiptIndianRupee,
       href: "/dashboard/user/donations/donate",
     },
-    { name: "NGO Membership", icon: Users, href: "/dashboard/user/member" },
   ],
   bottomNavItems: [
     { name: "Profile", icon: User, href: "/dashboard/user/profile" },

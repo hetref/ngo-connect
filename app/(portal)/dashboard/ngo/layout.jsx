@@ -90,11 +90,6 @@ const Layout = ({ children }) => {
         href: "/dashboard/ngo/activities",
       },
       { name: "Members", icon: Users, href: "/dashboard/ngo/members" },
-      {
-        name: "Coordinated Activities",
-        icon: Scan,
-        href: "/dashboard/ngo/coordinated-activities",
-      },
     ],
     financeNavItems: [
       {

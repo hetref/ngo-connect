@@ -4,6 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Make sure you have this firebase config file
+import { auth } from "@/lib/firebase"
+import { onAuthStateChanged } from "firebase/auth";
 
 export function PersonalOverview() {
   const [user, setUser] = useState(null);
@@ -11,44 +13,46 @@ export function PersonalOverview() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchUserData = async () => {
-      try {
-        // Use the userId from your Firebase data
-        const userId = "2qHbGFAD5uMZsdqGQGFGvB13Ge82";
-        const userDoc = await getDoc(doc(db, "users", userId));
-        
-        if (userDoc.exists()) {
-          const userData = userDoc.data();
-          
-          // Transform the Firebase data to match the component's expected structure
-          // You'll need to add these fields to your Firebase or modify the component
-          setUser({
-            name: userData.name || "User",
-            avatar: userData.avatar || "/placeholder-avatar.jpg",
-            address: userData.address,
-            email: userData.email,
-            phone: userData.phone,
-            membershipStatus: userData.membershipStatus || "Member",
-            badges: userData.badges || ["Community Member"],
-            stats: {
-              eventsVolunteered: userData.eventsVolunteered || 0,
-              totalDonations: userData.totalDonations || 0,
-              badgesEarned: userData.badgesEarned || 0,
-              upcomingEvents: userData.upcomingEvents || 0,
-            },
-          });
-        } else {
-          setError("User not found");
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        try {
+          const userId = currentUser.uid; // Get logged-in user's UID
+          const userDoc = await getDoc(doc(db, "users", userId));
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+
+            setUser({
+              name: userData.name || "User",
+              avatar: userData.avatar || "/placeholder-avatar.jpg",
+              address: userData.address,
+              email: userData.email,
+              phone: userData.phone,
+              membershipStatus: userData.membershipStatus || "Member",
+              badges: userData.badges || ["Community Member"],
+              stats: {
+                eventsVolunteered: userData.eventsVolunteered || 0,
+                totalDonations: userData.totalDonations || 0,
+                badgesEarned: userData.badgesEarned || 0,
+                upcomingEvents: userData.upcomingEvents || 0,
+              },
+            });
+          } else {
+            setError("User not found");
+          }
+        } catch (err) {
+          console.error("Error fetching user data:", err);
+          setError("Failed to load user data");
+        } finally {
+          setLoading(false);
         }
-      } catch (err) {
-        console.error("Error fetching user data:", err);
-        setError("Failed to load user data");
-      } finally {
+      } else {
+        setUser(null);
         setLoading(false);
       }
-    };
+    });
 
-    fetchUserData();
+    return () => unsubscribe(); // Cleanup listener on unmount
   }, []);
 
   // Loading state

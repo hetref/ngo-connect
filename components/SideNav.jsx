@@ -46,7 +46,7 @@ export function SideNav({ isOpen, setIsOpen, navConfig, type }) {
 
   const renderNavItems = (items) => (
     <ul className="space-y-2">
-      {items.map((item) => (
+      {items?.map((item) => (
         <li key={item.name}>
           <Link
             href={item.href}

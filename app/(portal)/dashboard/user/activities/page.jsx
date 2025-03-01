@@ -22,7 +22,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+
 
 // Card components
 const Card = ({ children, className = "" }) => (
@@ -119,6 +121,9 @@ const Badge = ({ children, variant = "default", className = "" }) => {
 };
 
 const ActivityParticipationPage = () => {
+  const handleRedirect = () => {
+    router.push("/dashboard/user/activities/search-activity");
+  };
   const [liveEvent, setLiveEvent] = useState(null);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
   const [attendedActivities, setAttendedActivities] = useState([]);
@@ -411,7 +416,7 @@ const ActivityParticipationPage = () => {
       ) : (
         showCertificate && (
           <div className="text-right">
-            <Button variant="outline" size="sm">
+            <Button variant="sm" size="sm" className="bg-[#1CAC78] hover:bg-green-500 text-white">
               <Download className="w-4 h-4 mr-2" />
               Certificate
             </Button>
@@ -420,7 +425,6 @@ const ActivityParticipationPage = () => {
       )}
     </div>
   );
-
   return (
     <div className="container mx-auto p-4 space-y-8">
       <h1 className="text-3xl font-bold mb-8">Activity Participation</h1>
@@ -521,7 +525,7 @@ const ActivityParticipationPage = () => {
           </Card>
 
           <div className="text-center">
-            <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+            <Button className="bg-[#1CAC78] hover:bg-[#158f63] text-white" onClick={handleRedirect} variant="sm">
               Find More Activities!
             </Button>
           </div>

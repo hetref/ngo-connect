@@ -81,6 +81,11 @@ export default function UserVolunteerPage() {
   const [expandedQRTitle, setExpandedQRTitle] = useState("");
   const { Canvas } = useQRCode();
   const router = useRouter();
+
+  const handleRedirect = () => {
+    router.push("/dashboard/user/activities/search-activity");
+};
+
   // Function to extract timestamp from activity ID
   const getEventTimestamp = (activityId) => {
     if (!activityId) return 0;
@@ -208,7 +213,7 @@ export default function UserVolunteerPage() {
               <p className="mb-4">
                 You haven't signed up for any upcoming volunteering activities.
               </p>
-              <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+              <Button className="bg-[#1CAC78] hover:bg-[#158f63]" onClick={handleRedirect}>
                 Browse Activities
               </Button>
             </div>
@@ -480,7 +485,7 @@ export default function UserVolunteerPage() {
       </Card>
 
       <div className="text-center">
-        <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+        <Button className="bg-[#1CAC78] hover:bg-[#158f63]" onClick={handleRedirect}>
           Join More Events!
         </Button>
       </div>

@@ -23,7 +23,7 @@ export default function SearchActivitiesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [suggestions, setSuggestions] = useState([]);
   const [category, setCategory] = useState("");
-  const [dateFilter, setDateFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState("upcoming"); // Set default to "upcoming"
   const [location, setLocation] = useState("");
   const [ngoRating, setNgoRating] = useState([4]);
   const [activities, setActivities] = useState([]);
@@ -31,8 +31,8 @@ export default function SearchActivitiesPage() {
   const [recentSearches, setRecentSearches] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [ngoDataMap, setNgoDataMap] = useState({});
+  const [allActivities, setAllActivities] = useState([]); // Store all activities separately
 
-  // const router = useRouter();
   // Load recent searches from localStorage on component mount
   useEffect(() => {
     const savedSearches = localStorage.getItem("recentSearches");
@@ -44,7 +44,7 @@ export default function SearchActivitiesPage() {
   // Save recent searches to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem("recentSearches", JSON.stringify(recentSearches));
-  }, [recentSearches]);
+  }, []);
 
   // Fetch NGO data for a set of NGO IDs
   const fetchNgoData = async (ngoIds) => {
@@ -83,8 +83,23 @@ export default function SearchActivitiesPage() {
           ...doc.data(),
         }));
 
-        setActivities(activitiesData);
-        setFilteredActivities(activitiesData);
+        // Store all activities
+        setAllActivities(activitiesData);
+
+        // Filter for upcoming activities by default
+        const now = new Date();
+        const today = new Date(
+          now.getFullYear(),
+          now.getMonth(),
+          now.getDate()
+        );
+        const upcomingActivities = activitiesData.filter((activity) => {
+          const eventDate = new Date(activity.eventDate);
+          return eventDate >= today;
+        });
+
+        setActivities(upcomingActivities);
+        setFilteredActivities(upcomingActivities);
 
         // Extract all NGO IDs from activities
         const ngoIds = activitiesData.map((activity) => activity.ngoId);
@@ -101,7 +116,33 @@ export default function SearchActivitiesPage() {
 
   // Filter activities based on search and filter criteria
   useEffect(() => {
-    let results = activities;
+    let baseActivities = allActivities;
+
+    // First apply date filtering to determine the base set of activities
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    if (dateFilter === "upcoming") {
+      baseActivities = allActivities.filter((activity) => {
+        const eventDate = new Date(activity.eventDate);
+        return eventDate >= today;
+      });
+    } else if (dateFilter === "ongoing") {
+      baseActivities = allActivities.filter((activity) => {
+        const eventDate = new Date(activity.eventDate);
+        return eventDate.toDateString() === today.toDateString();
+      });
+    } else if (dateFilter === "past") {
+      baseActivities = allActivities.filter((activity) => {
+        const eventDate = new Date(activity.eventDate);
+        return eventDate < today;
+      });
+    }
+
+    // Set the base activities that match the date filter
+    setActivities(baseActivities);
+
+    let results = baseActivities;
 
     // Apply search filter
     if (searchQuery) {
@@ -129,29 +170,6 @@ export default function SearchActivitiesPage() {
       );
     }
 
-    // Apply date filter
-    if (dateFilter) {
-      const now = new Date();
-      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-      if (dateFilter === "upcoming") {
-        results = results.filter((activity) => {
-          const eventDate = new Date(activity.eventDate);
-          return eventDate > today;
-        });
-      } else if (dateFilter === "ongoing") {
-        results = results.filter((activity) => {
-          const eventDate = new Date(activity.eventDate);
-          return eventDate.toDateString() === today.toDateString();
-        });
-      } else if (dateFilter === "past") {
-        results = results.filter((activity) => {
-          const eventDate = new Date(activity.eventDate);
-          return eventDate < today;
-        });
-      }
-    }
-
     // Apply location filter
     if (location) {
       results = results.filter(
@@ -176,7 +194,7 @@ export default function SearchActivitiesPage() {
     dateFilter,
     location,
     ngoRating,
-    activities,
+    allActivities,
     ngoDataMap,
   ]);
 
@@ -438,7 +456,7 @@ export default function SearchActivitiesPage() {
                 onClick={() => {
                   setSearchQuery("");
                   setCategory("");
-                  setDateFilter("");
+                  setDateFilter("upcoming"); // Reset to upcoming instead of empty
                   setLocation("");
                   setNgoRating([4]);
                 }}

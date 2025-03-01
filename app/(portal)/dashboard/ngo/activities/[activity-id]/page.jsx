@@ -258,6 +258,9 @@ export default function NGOActivitiesPage() {
                 <strong>Participation Deadline:</strong>{" "}
                 {activity.participationDeadline}
               </p>
+              <p className="mb-2">
+                <strong>Category: </strong> {activity.category}
+              </p>
             </div>
           </CardContent>
         </Card>

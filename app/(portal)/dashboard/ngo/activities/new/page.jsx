@@ -32,10 +32,18 @@ const page = () => {
   const [ngoName, setNgoName] = useState("");
   const router = useRouter();
   const [coordinatorEmail, setCoordinatorEmail] = useState("");
-  // Fetch members when component mounts
+  // New states for category
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [showOtherCategory, setShowOtherCategory] = useState(false);
+  const [otherCategory, setOtherCategory] = useState("");
+
+  // Fetch members and categories when component mounts
   useEffect(() => {
-    const fetchMembers = async () => {
+    const fetchData = async () => {
       try {
+        if (!auth.currentUser) return;
+
         // First get the NGO ID from the current user's document
         const userDoc = await getDoc(doc(db, "users", auth.currentUser.uid));
         if (!userDoc.exists()) {
@@ -47,7 +55,18 @@ const page = () => {
         setNgoName(userDoc.data().ngoName);
         setNgoId(ngoId);
 
-        // Then fetch all members from the NGO's members subcollection
+        // Set current user as default coordinator
+        setCoordinator(auth.currentUser.uid);
+        const currentUserEmail = auth.currentUser.email;
+        setCoordinatorEmail(currentUserEmail);
+
+        // Fetch categories from ngo collection
+        const ngoDoc = await getDoc(doc(db, "ngo", ngoId));
+        if (ngoDoc.exists() && ngoDoc.data().categories) {
+          setCategories(ngoDoc.data().categories);
+        }
+
+        // Fetch all members from the NGO's members subcollection
         const membersRef = collection(db, "ngo", ngoId, "members");
         const membersSnapshot = await getDocs(membersRef);
 
@@ -58,13 +77,11 @@ const page = () => {
 
         setMembers(membersList);
       } catch (error) {
-        console.error("Error fetching members:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
-    if (auth.currentUser) {
-      fetchMembers();
-    }
+    fetchData();
   }, []);
 
   const uploadImage = async (file, path) => {
@@ -95,6 +112,12 @@ const page = () => {
     });
   };
 
+  const handleCategoryChange = (e) => {
+    const selected = e.target.value;
+    setSelectedCategory(selected);
+    setShowOtherCategory(selected === "other");
+  };
+
   const handleCreateEvent = async (e) => {
     e.preventDefault();
     setIsLoading(true);
@@ -111,11 +134,33 @@ const page = () => {
         !participationDeadline ||
         !coordinator ||
         !contactEmail ||
-        !location
+        !location ||
+        !selectedCategory
       ) {
-        alert("Please fill in all required fields");
+        toast.error("Please fill in all required fields");
         setIsLoading(false);
         return;
+      }
+
+      // Handle category selection
+      let finalCategory = selectedCategory;
+
+      // If "other" is selected, use the custom category
+      if (selectedCategory === "other") {
+        if (!otherCategory.trim()) {
+          toast.error("Please enter a category name");
+          setIsLoading(false);
+          return;
+        }
+        finalCategory = otherCategory.trim();
+
+        // Add the new category to the NGO's categories array if it doesn't exist
+        if (!categories.includes(finalCategory)) {
+          const ngoRef = doc(db, "ngo", NgoId);
+          await updateDoc(ngoRef, {
+            categories: arrayUnion(finalCategory),
+          });
+        }
       }
 
       // Generate event ID
@@ -146,6 +191,7 @@ const page = () => {
         contactEmail,
         location,
         additionalNotes,
+        category: finalCategory,
         createdAt: new Date().toISOString(),
         createdBy: auth.currentUser.uid,
       };
@@ -172,7 +218,6 @@ const page = () => {
       const coordinatedEventData = {
         attendedParticipants: [],
         attendedVolunteers: [],
-        // coordinatorId: coordinator,
         lastUpdated: new Date().toISOString(),
       };
 
@@ -182,6 +227,7 @@ const page = () => {
       await updateDoc(coordinatorRef, {
         coordinatedEvents: arrayUnion(eventId),
       });
+
       const activityURL = `/dashboard/ngo/activities/${eventId}`;
       await fetch("/api/coordinator-email", {
         method: "POST",
@@ -196,18 +242,31 @@ const page = () => {
           eventDate,
           ngoName,
           activityURL,
-          //  email: membersObj.email,
           email: coordinatorEmail,
         }),
       });
 
       toast.success("Event created successfully!");
+      // toast.loading("Redirecting to event form page...");
       router.push(`/dashboard/ngo/activities/${eventId}/forms`);
     } catch (error) {
       console.error("Error creating event:", error);
-      alert("Error creating event: " + error.message);
+      toast.error("Error creating event: " + error.message);
     } finally {
       setIsLoading(false);
+      setEventName("");
+      setTagline("");
+      setShortDescription("");
+      setFeaturedImage(null);
+      setLogo(null);
+      setEventDate("");
+      setParticipationDeadline("");
+      setCoordinator("");
+      setContactEmail("");
+      setLocation("");
+      setAdditionalNotes("");
+      setSelectedCategory("");
+      setOtherCategory("");
     }
   };
 
@@ -222,15 +281,15 @@ const page = () => {
     try {
       const coordinatorDoc = await getDoc(doc(db, "users", coordinator));
       if (coordinatorDoc.exists()) {
-        // setCoordinatorData(coordinatorDoc.data());
         setCoordinatorEmail(coordinatorDoc.data().email);
       }
     } catch (error) {
       console.error("Error fetching coordinator data:", error);
     }
   };
+
   return (
-    <div className="max-w-lg mx-auto p-6 bg-white shadow-md rounded-lg">
+    <div className=" mx-auto p-6 bg-white shadow-md rounded-lg">
       <h1 className="text-2xl font-bold mb-4 text-center">Create Event</h1>
 
       <form className="space-y-4">
@@ -261,6 +320,38 @@ const page = () => {
             required
           />
         </div>
+        {/* New Category field */}
+        <div>
+          <label className="block text-gray-700">Event Category</label>
+          <select
+            className="w-full p-2 border rounded"
+            onChange={handleCategoryChange}
+            value={selectedCategory}
+            required
+          >
+            <option value="">Select Category</option>
+            {categories.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+            <option value="other">Other</option>
+          </select>
+        </div>
+        {/* Conditional text field for custom category */}
+        {showOtherCategory && (
+          <div>
+            <label className="block text-gray-700">Specify Category</label>
+            <input
+              type="text"
+              className="w-full p-2 border rounded"
+              value={otherCategory}
+              onChange={(e) => setOtherCategory(e.target.value)}
+              placeholder="Enter new category"
+              required
+            />
+          </div>
+        )}
         <div>
           <label className="block text-gray-700">Featured Image</label>
           <input
@@ -268,6 +359,7 @@ const page = () => {
             className="w-full p-2 border rounded"
             onChange={(e) => setFeaturedImage(e.target.files[0])}
             required
+            accept="image/*"
           />
         </div>
         <div>
@@ -277,6 +369,7 @@ const page = () => {
             className="w-full p-2 border rounded"
             onChange={(e) => setLogo(e.target.files[0])}
             required
+            accept="image/*"
           />
         </div>
         <div>
@@ -302,9 +395,10 @@ const page = () => {
           <select
             className="w-full p-2 border rounded"
             onChange={(e) => handleCoordinator(e)}
+            value={coordinator}
             required
           >
-            <option value="">Select Coordinator</option>
+            <option value={auth.currentUser?.uid}>Me (Default)</option>
             {members
               .filter((member) => member.status === "active")
               .map((member) => (
@@ -341,7 +435,7 @@ const page = () => {
         </div>
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          className="w-full bg-green-500 text-white p-2 rounded hover:bg-green-600"
           onClick={handleCreateEvent}
           disabled={isLoading}
         >

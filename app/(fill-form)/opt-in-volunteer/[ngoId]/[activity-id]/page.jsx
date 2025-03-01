@@ -154,7 +154,7 @@ const VolunteerRegistrationForm = () => {
       });
 
       setSuccess(true);
-      router.push("/dashboard/profile");
+      router.push("/dashboard/user/activities");
     } catch (error) {
       console.error("Error submitting form:", error);
       setError("Failed to submit application");

@@ -188,6 +188,9 @@ const NGOListPage = () => {
                 </div>
                 <CardHeader>
                   <CardTitle className="flex justify-between items-center">
+                    <Link href={`/ngo/${ngo.id}`}>
+                      {ngo.ngoName}
+                    </Link>
                     <Link href={`/ngo/${ngo.id}`}>{ngo.ngoName}</Link>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>

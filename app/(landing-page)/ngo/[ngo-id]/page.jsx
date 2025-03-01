@@ -1,303 +1,516 @@
-"use client";
+"use client"
 
-import { useState, useEffect } from "react";
-import { AnimatePresence, motion } from "framer-motion";
-import { useParams } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Globe, MapPin, Users, Phone, Mail, Wallet } from "lucide-react";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import NGODetails from "@/components/ngo/single-ngo/NGODetails";
-import NGOActivities from "@/components/ngo/single-ngo/NGOActivities";
-import DonateNow from "@/components/ngo/single-ngo/DonateNow";
+import { useState, useEffect } from "react"
+import { motion } from "framer-motion"
+import { useParams } from "next/navigation"
+import { doc, getDoc, collection, query, getDocs, where } from "firebase/firestore"
+import { db } from "@/lib/firebase"
+import Image from "next/image"
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { Separator } from "@/components/ui/separator"
+import { Skeleton } from "@/components/ui/skeleton"
+import { Globe, MapPin, Users, Phone, Mail, Heart, Share2, Bookmark, ArrowUpRight } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+
+import NGODetails from "@/components/ngo/single-ngo/NGODetails"
+import NGOActivities from "@/components/NGOActivities"
+import DonateNow from "@/components/ngo/single-ngo/DonateNow"
 
 export default function SingleNGOPage() {
-  const params = useParams();
-  const ngoId = params["ngo-id"];
-  const [ngo, setNgo] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  // Modal states
-  const [showMoneyModal, setShowMoneyModal] = useState(false);
-  const [showEthModal, setShowEthModal] = useState(false);
-  const [donationAmount, setDonationAmount] = useState("");
-  const [ethAmount, setEthAmount] = useState("");
-  const [rupeeEquivalent, setRupeeEquivalent] = useState(0);
-  const [ethPrice, setEthPrice] = useState(0);
-  const [activeTab, setActiveTab] = useState("Details");
-
-  const tabs = ["Details", "Activities", "Donate"];
+  const params = useParams()
+  const ngoId = params["ngo-id"]
+  const [ngo, setNgo] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [ethPrice, setEthPrice] = useState(0)
+  const [activeTab, setActiveTab] = useState("details")
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false)
 
   useEffect(() => {
     async function fetchNGO() {
-      if (!ngoId) return;
+      if (!ngoId) {
+        console.log("No NGO ID provided")
+        return
+      }
+      
+      console.log("Fetching NGO with ID:", ngoId)
+      
       try {
-        const docRef = doc(db, "ngo", ngoId);
-        const docSnap = await getDoc(docRef);
+        const docRef = doc(db, "ngo", ngoId)
+        const docSnap = await getDoc(docRef)
+        
         if (docSnap.exists()) {
-          setNgo(docSnap.data());
-          console.log("NGODATA", docSnap.data());
+          const ngoData = docSnap.data()
+          console.log("NGO Data found:", {
+            id: ngoId,
+            ...ngoData,
+            bankDetails: ngoData.bankDetails || "No bank details available",
+            location: ngoData.location || "No location specified",
+            phone: ngoData.phone || "No phone specified",
+            email: ngoData.email || "No email specified",
+            website: ngoData.website || "No website specified",
+            category: ngoData.category || "No category specified",
+            verified: ngoData.verified || false,
+            address: ngoData.address || "No address specified"
+          })
+          setNgo(ngoData)
         } else {
-          setNgo(null);
+          console.log("No NGO found with ID:", ngoId)
+          setNgo(null)
         }
       } catch (error) {
-        console.error("Error fetching NGO:", error);
+        console.error("Error fetching NGO:", error)
+        console.log("Error details:", {
+          message: error.message,
+          code: error.code,
+          stack: error.stack
+        })
       } finally {
-        setLoading(false);
+        setLoading(false)
       }
     }
-    fetchNGO();
-  }, [ngoId]);
+    fetchNGO()
+  }, [ngoId])
 
   useEffect(() => {
     async function fetchEthPrice() {
       try {
-        const response = await fetch(
-          "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=inr"
-        );
+        const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=inr")
         if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+          throw new Error(`HTTP error! status: ${response.status}`)
         }
-        const data = await response.json();
-        setEthPrice(data.ethereum.inr);
+        const data = await response.json()
+        setEthPrice(data.ethereum.inr)
       } catch (error) {
-        console.error("Error fetching ETH price:", error);
-        setEthPrice(0);
+        console.error("Error fetching ETH price:", error)
+        setEthPrice(0)
       }
     }
 
-    fetchEthPrice();
-    const intervalId = setInterval(fetchEthPrice, 60000); // Update every minute
+    fetchEthPrice()
+    const intervalId = setInterval(fetchEthPrice, 60000) // Update every minute
 
-    return () => clearInterval(intervalId);
-  }, []);
-
-  useEffect(() => {
-    if (ethAmount && ethPrice > 0) {
-      setRupeeEquivalent(parseFloat(ethAmount) * ethPrice);
-    } else {
-      setRupeeEquivalent(0);
-    }
-  }, [ethAmount, ethPrice]);
-
-  const handleDonate = (type) => {
-    if (type === "money") {
-      setShowMoneyModal(true);
-    } else if (type === "ethereum") {
-      setShowEthModal(true);
-    } else {
-      console.log(`Donating ${type} to NGO ${ngoId}`);
-    }
-  };
+    return () => clearInterval(intervalId)
+  }, [])
 
   if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        Loading...
-      </div>
-    );
+    return <LoadingSkeleton />
   }
 
   if (!ngo) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-4">
         <h2 className="text-2xl font-semibold">NGO not found</h2>
+        <p className="text-muted-foreground">The NGO you're looking for doesn't exist or has been removed.</p>
+        <Button variant="outline" onClick={() => window.history.back()}>
+          Go Back
+        </Button>
       </div>
-    );
+    )
   }
 
-  const handleMoneyDonation = async () => {
-    // Implement payment gateway integration here
-    console.log(`Processing donation of ₹${donationAmount}`);
-    setDonationAmount("");
-    setShowMoneyModal(false);
-  };
-
-  const handleEthDonation = async () => {
-    // Implement Ethereum payment integration here
-    console.log(
-      `Processing donation of ${ethAmount} ETH (₹${rupeeEquivalent.toLocaleString("en-IN", { maximumFractionDigits: 2 })})`
-    );
-    setEthAmount("");
-    setShowEthModal(false);
-  };
-
   return (
-    <>
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.5 }}
-        className="container mx-auto py-8"
-      >
-        <Card className="bg-white shadow-lg">
-          <div className="h-96">
-            <img
-              src={ngo.logoUrl || "/api/placeholder/1200/800"}
-              alt={ngo.ngoName}
-              className="h-full w-full object-contain"
-            />
-            {/* <div className="absolute bottom-4 right-4 space-x-2">
-              <Button variant="secondary" size="sm" onClick={prevImage}>
-                Previous
-              </Button>
-              <Button variant="secondary" size="sm" onClick={nextImage}>
-                Next
-              </Button>
-            </div> */}
-          </div>
-          <CardHeader className="border-b">
-            <div className="flex justify-between items-center">
-              <CardTitle className="text-3xl">{ngo?.ngoName}</CardTitle>
-              {/* <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button className="bg-[#1CAC78] hover:bg-[#158f64]">
-                    <Wallet className="h-4 w-4 mr-2" />
-                    Donate Now
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent>
-                  <DropdownMenuItem onClick={() => handleDonate("money")}>
-                    Donate Money
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDonate("resources")}>
-                    Donate Resources
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => handleDonate("ethereum")}>
-                    Donate via Ethereum
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu> */}
-              {/* <DonateNowButton ngoData={ngo} /> */}
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="container mx-auto px-4 py-16">
-              <div className="flex justify-center mb-8">
-                {tabs.map((tab) => (
-                  <button
-                    key={tab}
-                    onClick={() => setActiveTab(tab)}
-                    className={`px-4 py-2 mx-2 rounded-full transition-colors ${
-                      activeTab === tab
-                        ? "bg-blue-600 text-white"
-                        : "bg-gray-200 text-gray-700 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                    }`}
-                  >
-                    {tab}
-                  </button>
-                ))}
-              </div>
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={activeTab}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  {activeTab === "Details" && (
-                    <NGODetails ngo={ngo} ngoId={ngoId} />
-                  )}
-                  {activeTab === "Activities" && <NGOActivities />}
-                  {activeTab === "Donate" && <DonateNow ngoData={ngo} />}
-                </motion.div>
-              </AnimatePresence>
-            </div>
-            {/*  */}
-          </CardContent>
-        </Card>
-      </motion.div>
+    <div className="container mx-auto py-8 px-4 md:px-6 pt-24">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Hero and Info */}
+        <div className="lg:col-span-2 space-y-6">
+          <HeroSection ngo={ngo} />
+          <InfoTabs 
+            ngo={ngo} 
+            ngoId={ngoId} 
+            ethPrice={ethPrice} 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab}
+          />
+        </div>
 
-      {/* <Dialog open={showMoneyModal} onOpenChange={setShowMoneyModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Donate Money</DialogTitle>
-            <DialogDescription>
-              Enter the amount you would like to donate to {ngo?.ngoName}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="amount">Amount (in ₹)</Label>
-              <Input
-                id="amount"
-                type="number"
-                value={donationAmount}
-                onChange={(e) => setDonationAmount(e.target.value)}
-                placeholder="Enter amount"
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => setShowMoneyModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-[#1CAC78] hover:bg-[#158f64]"
-              onClick={handleMoneyDonation}
-              disabled={!donationAmount || parseFloat(donationAmount) <= 0}
-            >
-              Pay Now
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        {/* Right Column - Quick Actions and Stats */}
+        <div className="space-y-6">
+          <QuickActions 
+            ngo={ngo} 
+            onDonate={() => setActiveTab("donate")}
+            onShare={() => setIsShareModalOpen(true)}
+          />
+          {/* Comment out NGOStats */}
+          {/* <NGOStats ngo={ngo} /> */}
+          {/* <RelatedNGOs /> */}
+        </div>
+      </div>
 
-      <Dialog open={showEthModal} onOpenChange={setShowEthModal}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Donate via Ethereum</DialogTitle>
-            <DialogDescription>
-              Enter the amount of ETH you would like to donate
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="eth-amount">Amount (in ETH)</Label>
-              <Input
-                id="eth-amount"
-                type="number"
-                value={ethAmount}
-                onChange={(e) => setEthAmount(e.target.value)}
-                placeholder="Enter ETH amount"
-                className="col-span-3"
-              />
-            </div>
-            {ethAmount && (
-              <div className="text-sm text-gray-500">
-                Equivalent amount: ₹
-                {rupeeEquivalent.toLocaleString("en-IN", {
-                  maximumFractionDigits: 2,
-                })}
+      {/* Add Share Modal */}
+      <ShareModal 
+        isOpen={isShareModalOpen} 
+        onClose={() => setIsShareModalOpen(false)}
+        url={typeof window !== 'undefined' ? window.location.href : ''}
+      />
+    </div>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className="container mx-auto py-8 px-4 md:px-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Card>
+            <CardContent className="p-0">
+              <Skeleton className="h-[300px] w-full rounded-t-lg" />
+              <div className="p-6 space-y-4">
+                <Skeleton className="h-8 w-3/4" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-4 w-5/6" />
               </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-32" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-3/4" />
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card>
+            <CardContent className="p-6 space-y-4">
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <Skeleton className="h-6 w-24" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function HeroSection({ ngo }) {
+  return (
+    <Card className="overflow-hidden border-none shadow-lg">
+      <div className="relative h-[300px] w-full">
+        <Image
+          src={ngo.logoUrl || "/placeholder.svg?height=300&width=800"}
+          alt={ngo.ngoName}
+          fill
+          className="object-cover"
+          priority
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent" />
+        <div className="absolute bottom-0 left-0 p-6 text-white">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">{ngo.ngoName}</h1>
+          <div className="flex items-center gap-2 text-white/90">
+            <MapPin className="h-4 w-4" />
+            <span>{ngo.location || "Location not specified"}</span>
+          </div>
+          <div className="flex gap-2 mt-3">
+            <Badge variant="secondary" className="bg-white/20 hover:bg-white/30">
+              {ngo.category || "Charity"}
+            </Badge>
+            {ngo.verified && (
+              <Badge variant="secondary" className="bg-blue-500/80 hover:bg-blue-500/90">
+                Verified
+              </Badge>
             )}
           </div>
-          <div className="flex justify-end gap-4">
-            <Button variant="outline" onClick={() => setShowEthModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              className="bg-[#1CAC78] hover:bg-[#158f64]"
-              onClick={handleEthDonation}
-              disabled={!ethAmount || parseFloat(ethAmount) <= 0}
-            >
-              Pay with ETH
-            </Button>
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+function InfoTabs({ ngo, ngoId, ethPrice, activeTab, setActiveTab }) {
+  const [donationMethod, setDonationMethod] = useState("cash")
+  
+  // Get available donation methods
+  const availableDonationMethods = ["cash"] // Cash is always available
+  if (ngo.donationsData?.isCryptoTransferEnabled) availableDonationMethods.push("online")
+  if (ngo.donationsData?.isBankTransferEnabled) availableDonationMethods.push("bank")
+
+  // Set initial donation method to the first available method
+  useEffect(() => {
+    setDonationMethod(availableDonationMethods[0])
+  }, [])
+  
+  return (
+    <Card>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <CardHeader className="pb-0">
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="details">Details</TabsTrigger>
+            <TabsTrigger value="activities">Activities</TabsTrigger>
+            <TabsTrigger value="donate">Donate</TabsTrigger>
+          </TabsList>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <TabsContent value="details" className="mt-0">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <NGODetails ngo={ngo} ngoId={ngoId} />
+            </motion.div>
+          </TabsContent>
+          <TabsContent value="activities" className="mt-0">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <NGOActivities ngoId={ngoId} />
+            </motion.div>
+          </TabsContent>
+          <TabsContent value="donate" className="mt-0">
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+              <Tabs value={donationMethod} onValueChange={setDonationMethod} className="w-full">
+                <TabsList className="grid w-full grid-cols-3 mb-4">
+                  {/* Cash donation is always available */}
+                  <TabsTrigger value="cash">Cash/Kind</TabsTrigger>
+                  
+                  {/* Show online/crypto tab if enabled */}
+                  {ngo.donationsData?.isCryptoTransferEnabled && (
+                    <TabsTrigger value="online">Online</TabsTrigger>
+                  )}
+                  
+                  {/* Show bank transfer tab if enabled */}
+                  {ngo.donationsData?.isBankTransferEnabled && (
+                    <TabsTrigger value="bank">Bank</TabsTrigger>
+                  )}
+                </TabsList>
+                
+                {/* Cash donation content - always available */}
+                <TabsContent value="cash" className="mt-0">
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-semibold">Cash/Kind Donation</h3>
+                    <p className="text-muted-foreground">
+                      You can visit our office at the following address to make a cash/kind donation:
+                    </p>
+                    <div className="bg-muted p-4 rounded-lg">
+                      <p className="font-medium">{ngo.ngoName}</p>
+                      <p className="text-sm text-muted-foreground">{ngo.address || ngo.location}</p>
+                      {ngo.phone && <p className="text-sm text-muted-foreground">Phone: {ngo.phone}</p>}
+                    </div>
+                  </div>
+                </TabsContent>
+                
+                {/* Online/Crypto donation content - show if enabled */}
+                {ngo.donationsData?.isCryptoTransferEnabled && (
+                  <TabsContent value="online" className="mt-0">
+                    <DonateNow ngoData={ngo} ethPrice={ethPrice} />
+                  </TabsContent>
+                )}
+                
+                {/* Bank transfer content - show if enabled */}
+                {ngo.donationsData?.isBankTransferEnabled && (
+                  <TabsContent value="bank" className="mt-0">
+                    <div className="space-y-4">
+                      <h3 className="text-lg font-semibold">Bank Transfer</h3>
+                      <p className="text-muted-foreground">
+                        Please use the following bank details to make your donation:
+                      </p>
+                      <div className="bg-muted p-4 rounded-lg space-y-2">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Account Holder Name:</span>
+                          <span className="font-medium">{ngo.donationsData?.bankTransferDetails?.accountHolderName || ngo.ngoName}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Bank Name:</span>
+                          <span className="font-medium">{ngo.donationsData?.bankTransferDetails?.bankName || "Contact NGO for details"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Branch:</span>
+                          <span className="font-medium">{ngo.donationsData?.bankTransferDetails?.branchName || "Contact NGO for details"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Account Number:</span>
+                          <span className="font-medium">{ngo.donationsData?.bankTransferDetails?.accountNumber || "Contact NGO for details"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Account Type:</span>
+                          <span className="font-medium">{ngo.donationsData?.bankTransferDetails?.accountType || "Savings"}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">IFSC Code:</span>
+                          <span className="font-medium">{ngo.donationsData?.bankTransferDetails?.ifscCode || "Contact NGO for details"}</span>
+                        </div>
+                      </div>
+                      <div className="mt-4 p-4 bg-yellow-50 rounded-lg">
+                        <p className="text-sm text-yellow-800">
+                          <strong>Note:</strong> After making the transfer, please keep your transaction reference number for our records.
+                        </p>
+                      </div>
+                    </div>
+                  </TabsContent>
+                )}
+              </Tabs>
+            </motion.div>
+          </TabsContent>
+        </CardContent>
+      </Tabs>
+    </Card>
+  )
+}
+
+function QuickActions({ ngo, onDonate, onShare }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-lg">Quick Actions</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <Button 
+          className="w-full bg-primary hover:bg-primary/90 gap-2"
+          onClick={onDonate}
+        >
+          <Heart className="h-4 w-4" />
+          Donate Now
+        </Button>
+        <Button 
+          variant="outline" 
+          className="w-full gap-2"
+          onClick={onShare}
+        >
+          <Share2 className="h-4 w-4" />
+          Share
+        </Button>
+        <Separator />
+        <div className="space-y-3">
+          <div className="flex items-center gap-2 text-sm">
+            <Phone className="h-4 w-4 text-muted-foreground" />
+            <span>{ngo.phone || "Not available"}</span>
           </div>
-        </DialogContent>
-      </Dialog> */}
-    </>
-  );
+          <div className="flex items-center gap-2 text-sm">
+            <Mail className="h-4 w-4 text-muted-foreground" />
+            <span>{ngo.email || "Not available"}</span>
+          </div>
+          {ngo.website && (
+            <div className="flex items-center gap-2 text-sm">
+              <Globe className="h-4 w-4 text-muted-foreground" />
+              <a
+                href={ngo.website}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:underline flex items-center gap-1"
+              >
+                Visit website <ArrowUpRight className="h-3 w-3" />
+              </a>
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+// function NGOStats({ ngo }) {
+//   return (
+//     <Card>
+//       <CardHeader>
+//         <CardTitle className="text-lg">NGO Stats</CardTitle>
+//       </CardHeader>
+//       <CardContent className="space-y-4">
+//         <div className="grid grid-cols-2 gap-4">
+//           <div className="bg-muted/50 p-4 rounded-lg text-center">
+//             <p className="text-2xl font-bold">{ngo.donorsCount || "0"}</p>
+//             <p className="text-sm text-muted-foreground">Donors</p>
+//           </div>
+//           <div className="bg-muted/50 p-4 rounded-lg text-center">
+//             <p className="text-2xl font-bold">{ngo.projectsCount || "0"}</p>
+//             <p className="text-sm text-muted-foreground">Projects</p>
+//           </div>
+//         </div>
+//         <div className="space-y-2">
+//           <div className="flex justify-between text-sm">
+//             <span className="text-muted-foreground">Founded</span>
+//             <span className="font-medium">{ngo.foundedYear || "N/A"}</span>
+//           </div>
+//           <div className="flex justify-between text-sm">
+//             <span className="text-muted-foreground">Volunteers</span>
+//             <span className="font-medium">{ngo.volunteersCount || "N/A"}</span>
+//           </div>
+//           <div className="flex justify-between text-sm">
+//             <span className="text-muted-foreground">Funds Raised</span>
+//             <span className="font-medium">₹{ngo.fundsRaised?.toLocaleString() || "0"}</span>
+//           </div>
+//         </div>
+//       </CardContent>
+//     </Card>
+//   )
+// }
+
+// function RelatedNGOs() {
+//   return (
+//     <Card>
+//       <CardHeader>
+//         <CardTitle className="text-lg">Similar NGOs</CardTitle>
+//         <CardDescription>Organizations with similar missions</CardDescription>
+//       </CardHeader>
+//       <CardContent className="space-y-4">
+//         {[1, 2, 3].map((i) => (
+//           <div key={i} className="flex items-center gap-3">
+//             <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
+//               <Users className="h-5 w-5 text-muted-foreground" />
+//             </div>
+//             <div>
+//               <p className="font-medium">Related NGO {i}</p>
+//               <p className="text-xs text-muted-foreground">Similar category</p>
+//             </div>
+//           </div>
+//         ))}
+//         <Button variant="ghost" className="w-full text-sm" size="sm">
+//           View More
+//         </Button>
+//       </CardContent>
+//     </Card>
+//   )
+// }
+
+function ShareModal({ isOpen, onClose, url }) {
+  const [copied, setCopied] = useState(false)
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      console.error('Failed to copy:', err)
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Share NGO</DialogTitle>
+        </DialogHeader>
+        <div className="flex items-center space-x-2">
+          <div className="grid flex-1 gap-2">
+            <input
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              value={url}
+              readOnly
+            />
+          </div>
+          <Button 
+            type="submit" 
+            size="sm" 
+            className="px-3"
+            onClick={copyToClipboard}
+          >
+            {copied ? 'Copied!' : 'Copy'}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
 }

@@ -30,8 +30,12 @@ export default function DonationReports({ timeFrame }) {
   const [donationStats, setDonationStats] = useState({
     total: 0,
     breakdown: [],
-    topDonors: [],
-  });
+    topDonors: []
+  })
+  // Add state for view more toggles
+  const [showAllCash, setShowAllCash] = useState(false)
+  const [showAllOnline, setShowAllOnline] = useState(false)
+  const [showAllCrypto, setShowAllCrypto] = useState(false)
 
   useEffect(() => {
     // Get current year
@@ -143,10 +147,42 @@ export default function DonationReports({ timeFrame }) {
     fetchDonations();
   }, []);
 
-  // Filter functions for different donation types
-  const cashDonations = donations.filter((d) => d.paymentMethod === "Cash");
-  const onlineDonations = donations.filter((d) => d.paymentMethod === "Online");
-  const cryptoDonations = donations.filter((d) => d.paymentMethod === "Crypto");
+  // Filter functions for different donation types and sort by date
+  const cashDonations = donations
+    .filter(d => d.paymentMethod === 'Cash')
+    .sort((a, b) => {
+      const dateA = new Date(a.donatedOn || a.timestamp || 0);
+      const dateB = new Date(b.donatedOn || b.timestamp || 0);
+      return dateB - dateA;
+    });
+
+  const onlineDonations = donations
+    .filter(d => d.paymentMethod === 'Online')
+    .sort((a, b) => {
+      const dateA = new Date(a.timestamp || a.id || 0);
+      const dateB = new Date(b.timestamp || b.id || 0);
+      return dateB - dateA;
+    });
+
+  const cryptoDonations = donations
+    .filter(d => d.paymentMethod === 'Crypto')
+    .sort((a, b) => {
+      const dateA = new Date(a.timestamp || a.id || 0);
+      const dateB = new Date(b.timestamp || b.id || 0);
+      return dateB - dateA;
+    });
+
+  // Helper function to format date
+  const formatDate = (dateString) => {
+    if (!dateString) return 'No date';
+    const date = new Date(dateString);
+    if (!(date instanceof Date) || isNaN(date)) return 'Invalid date';
+    
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
 
   const generatePDFData = () => {
     return {
@@ -269,18 +305,26 @@ export default function DonationReports({ timeFrame }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cashDonations.slice(0, 5).map((donation, index) => (
-                <TableRow key={donation.id}>
+              {(showAllCash ? cashDonations : cashDonations.slice(0, 5)).map((donation, index) => (
+                <TableRow key={donation.id || index}>
                   <TableCell>{donation.name}</TableCell>
-                  <TableCell>
-                    ₹{Number(donation.amount).toLocaleString()}
-                  </TableCell>
-                  <TableCell>{donation.donatedOn}</TableCell>
+                  <TableCell>₹{Number(donation.amount).toLocaleString()}</TableCell>
+                  <TableCell>{formatDate(donation.donatedOn || donation.timestamp)}</TableCell>
                   <TableCell>{donation.paymentMethod}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          {cashDonations.length > 5 && (
+            <div className="mt-4 text-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllCash(!showAllCash)}
+              >
+                {showAllCash ? "Show Less" : `View More (${cashDonations.length - 5} more)`}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -299,22 +343,26 @@ export default function DonationReports({ timeFrame }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {onlineDonations.slice(0, 5).map((donation, index) => (
-                <TableRow key={donation.id}>
+              {(showAllOnline ? onlineDonations : onlineDonations.slice(0, 5)).map((donation, index) => (
+                <TableRow key={donation.id || index}>
                   <TableCell>{donation.name}</TableCell>
-                  <TableCell>
-                    ₹{Number(donation.amount).toLocaleString()}
-                  </TableCell>
-                  <TableCell>
-                    {donation.id
-                      ? new Date(donation.id).toISOString().split("T")[0]
-                      : "No date"}
-                  </TableCell>
+                  <TableCell>₹{Number(donation.amount).toLocaleString()}</TableCell>
+                  <TableCell>{formatDate(donation.timestamp || donation.id)}</TableCell>
                   <TableCell>{donation.paymentMethod}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          {onlineDonations.length > 5 && (
+            <div className="mt-4 text-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllOnline(!showAllOnline)}
+              >
+                {showAllOnline ? "Show Less" : `View More (${onlineDonations.length - 5} more)`}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -333,20 +381,26 @@ export default function DonationReports({ timeFrame }) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {cryptoDonations.slice(0, 5).map((donation, index) => (
-                <TableRow key={donation.id}>
+              {(showAllCrypto ? cryptoDonations : cryptoDonations.slice(0, 5)).map((donation, index) => (
+                <TableRow key={donation.id || index}>
                   <TableCell>{donation.name}</TableCell>
                   <TableCell>{donation.amount}</TableCell>
-                  <TableCell>
-                    {donation.id
-                      ? new Date(donation.id).toISOString().split("T")[0]
-                      : "No date"}
-                  </TableCell>
+                  <TableCell>{formatDate(donation.timestamp || donation.id)}</TableCell>
                   <TableCell>{donation.paymentMethod}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          {cryptoDonations.length > 5 && (
+            <div className="mt-4 text-center">
+              <Button
+                variant="outline"
+                onClick={() => setShowAllCrypto(!showAllCrypto)}
+              >
+                {showAllCrypto ? "Show Less" : `View More (${cryptoDonations.length - 5} more)`}
+              </Button>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

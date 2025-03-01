@@ -427,357 +427,166 @@ const DonateNow = ({ ngoData }) => {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
       >
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-8">
-          <div>
-            <h2>Donate Online</h2>
+        <div className="max-w-2xl ">
+          <div className="bg-white rounded-lg shadow-sm p-6 space-y-6">
+            <div className="border-b pb-4">
+              <h2 className="text-2xl font-semibold text-gray-800">Make a Donation</h2>
+              <p className="text-gray-600 mt-1">Your support makes a difference</p>
+            </div>
+
             {!userType || userType !== "user" ? (
-              <p>Login with User Creds to Donate.</p>
+              <div className="text-center py-8">
+                <p className="text-lg text-gray-600">Please login with your user account to make a donation.</p>
+                <Button className="mt-4">Login to Donate</Button>
+              </div>
             ) : (
-              <form className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={onlineFormData.name}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
+              <form className="space-y-6">
+                {/* Personal Information Section */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-medium text-gray-700">Personal Information</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="name" className="text-gray-700">Full Name</Label>
+                      <Input
+                        id="name"
+                        name="name"
+                        value={onlineFormData.name}
+                        onChange={handleOnlineInputChange}
+                        className="mt-1"
+                        placeholder="Enter your full name"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="email" className="text-gray-700">Email Address</Label>
+                      <Input
+                        id="email"
+                        name="email"
+                        type="email"
+                        value={onlineFormData.email}
+                        onChange={handleOnlineInputChange}
+                        className="mt-1"
+                        placeholder="your@email.com"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone" className="text-gray-700">Phone Number</Label>
+                      <Input
+                        id="phone"
+                        name="phone"
+                        type="tel"
+                        value={onlineFormData.phone}
+                        onChange={handleOnlineInputChange}
+                        className="mt-1"
+                        placeholder="Your contact number"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={onlineFormData.email}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
+
+                {/* Address Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-lg font-medium text-gray-700">Address Details</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="md:col-span-2">
+                      <Label htmlFor="address" className="text-gray-700">Street Address</Label>
+                      <Input
+                        id="address"
+                        name="address"
+                        value={onlineFormData.address}
+                        onChange={handleOnlineInputChange}
+                        className="mt-1"
+                        placeholder="Enter your street address"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="city" className="text-gray-700">City</Label>
+                      <Input
+                        id="city"
+                        name="city"
+                        value={onlineFormData.city}
+                        onChange={handleOnlineInputChange}
+                        className="mt-1"
+                        placeholder="Your city"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state" className="text-gray-700">State</Label>
+                      <Input
+                        id="state"
+                        name="state"
+                        value={onlineFormData.state}
+                        onChange={handleOnlineInputChange}
+                        className="mt-1"
+                        placeholder="Your state"
+                        required
+                      />
+                    </div>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={onlineFormData.phone}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
+
+                {/* Donation Amount Section */}
+                <div className="space-y-4 pt-4 border-t">
+                  <h3 className="text-lg font-medium text-gray-700">Donation Amount</h3>
+                  <div>
+                    <Label htmlFor="amount" className="text-gray-700">Amount (INR)</Label>
+                    <Input
+                      id="amount"
+                      name="amount"
+                      type="number"
+                      value={onlineFormData.amount}
+                      onChange={handleOnlineInputChange}
+                      className="mt-1"
+                      placeholder="Enter amount"
+                      required
+                    />
+                  </div>
+                  
+                  <div className="flex items-center space-x-2 bg-gray-50 p-4 rounded-lg">
+                    <Checkbox
+                      id="wantsCertificate"
+                      name="wantsCertificate"
+                      checked={onlineFormData.wantsCertificate}
+                      onCheckedChange={(checked) =>
+                        setOnlineFormData((prev) => ({
+                          ...prev,
+                          wantsCertificate: checked,
+                        }))
+                      }
+                    />
+                    <Label htmlFor="wantsCertificate" className="text-gray-700">
+                      I would like to receive a tax redemption certificate for this donation
+                    </Label>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    value={onlineFormData.address}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
+
+                {/* Submit Button */}
+                <div className="pt-6 border-t">
+                  <Button
+                    type="button"
+                    className="w-full h-12 text-lg font-medium"
+                    disabled={!isOnlineFormValid}
+                    onClick={handlePayment}
+                  >
+                    Donate Now
+                  </Button>
+                  <p className="text-center text-sm text-gray-500 mt-4">
+                    Your donation will help us make a difference
+                  </p>
                 </div>
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    value={onlineFormData.city}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    name="state"
-                    value={onlineFormData.state}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    name="amount"
-                    value={onlineFormData.amount}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="wantsCertificate"
-                    name="wantsCertificate"
-                    checked={onlineFormData.wantsCertificate}
-                    onCheckedChange={(checked) =>
-                      setOnlineFormData((prev) => ({
-                        ...prev,
-                        wantsCertificate: checked,
-                      }))
-                    }
-                  />
-                  <Label htmlFor="wantsCertificate">
-                    Do you want a tax redemption certificate for this donation?
-                  </Label>
-                </div>
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={!isOnlineFormValid}
-                  onClick={handlePayment}
-                >
-                  Donate
-                </Button>
               </form>
             )}
           </div>
-          <div>
-            <h2>Bank Transfer</h2>
-            <div className="space-y-4">
-              <p>
-                Please use the following bank details to make your donation:
-              </p>
-              <div>
-                <strong>Account Holder Name:</strong> Example NGO
-              </div>
-              <div>
-                <strong>Bank Name:</strong> Example Bank
-              </div>
-              <div>
-                <strong>Branch:</strong> Main Branch
-              </div>
-              <div>
-                <strong>Account Number:</strong> 1234567890
-              </div>
-              <div>
-                <strong>Account Type:</strong> Savings
-              </div>
-              <div>
-                <strong>IFSC Number:</strong> EXMP0001234
-              </div>
-            </div>
-          </div>
-          <div>
-            <h2>Cash Donation</h2>
-            <p>
-              If you want to donate resources or cash, please contact us at the
-              following email address for more details:
-            </p>
-            <p className="font-semibold">contact@examplengo.org</p>
-          </div>
-          {ngoData?.donationsData?.isCryptoTransferEnabled && (
-            <div>
-              <h2>Crypto Donation</h2>
-              <form onSubmit={handleCryptoDonation} className="space-y-4">
-                <div>
-                  <Label htmlFor="cryptoAmount">Amount (NGC)</Label>
-                  <Input
-                    id="cryptoAmount"
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    placeholder="Enter amount"
-                    value={cryptoAmount}
-                    onChange={(e) => setCryptoAmount(e.target.value)}
-                    disabled={isApproving || isDonating}
-                  />
-                </div>
-                <Button
-                  type="submit"
-                  className="w-full"
-                  disabled={!walletAddressHere || isApproving || isDonating}
-                >
-                  {isApproving
-                    ? "Approving..."
-                    : isDonating
-                      ? "Donating..."
-                      : "Approve NGC"}
-                </Button>
-              </form>
-            </div>
-          )}
         </div>
-        <Dialog open={isOnlineModalOpen} onOpenChange={setIsOnlineModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Donate Online</DialogTitle>
-            </DialogHeader>
-            {!userType || userType !== "user" ? (
-              <p>Login with User Creds to Donate.</p>
-            ) : (
-              <form className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Name</Label>
-                  <Input
-                    id="name"
-                    name="name"
-                    value={onlineFormData.name}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    name="email"
-                    type="email"
-                    value={onlineFormData.email}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    name="phone"
-                    type="tel"
-                    value={onlineFormData.phone}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="address">Address</Label>
-                  <Input
-                    id="address"
-                    name="address"
-                    value={onlineFormData.address}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="city">City</Label>
-                  <Input
-                    id="city"
-                    name="city"
-                    value={onlineFormData.city}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="state">State</Label>
-                  <Input
-                    id="state"
-                    name="state"
-                    value={onlineFormData.state}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="amount">Amount</Label>
-                  <Input
-                    id="amount"
-                    name="amount"
-                    value={onlineFormData.amount}
-                    onChange={handleOnlineInputChange}
-                    required
-                  />
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="wantsCertificate"
-                    name="wantsCertificate"
-                    checked={onlineFormData.wantsCertificate}
-                    onCheckedChange={(checked) =>
-                      setOnlineFormData((prev) => ({
-                        ...prev,
-                        wantsCertificate: checked,
-                      }))
-                    }
-                  />
-                  <Label htmlFor="wantsCertificate">
-                    Do you want a tax redemption certificate for this donation?
-                  </Label>
-                </div>
-                <Button
-                  type="button"
-                  className="w-full"
-                  disabled={!isOnlineFormValid}
-                  onClick={handlePayment}
-                >
-                  Donate
-                </Button>
-              </form>
-            )}
-          </DialogContent>
-        </Dialog>
-        <Dialog open={isBankModalOpen} onOpenChange={setIsBankModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Donate via Bank Transfer</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>
-                Please use the following bank details to make your donation:
-              </p>
-              <div>
-                <strong>Account Holder Name:</strong> Example NGO
-              </div>
-              <div>
-                <strong>Bank Name:</strong> Example Bank
-              </div>
-              <div>
-                <strong>Branch:</strong> Main Branch
-              </div>
-              <div>
-                <strong>Account Number:</strong> 1234567890
-              </div>
-              <div>
-                <strong>Account Type:</strong> Savings
-              </div>
-              <div>
-                <strong>IFSC Number:</strong> EXMP0001234
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog
-          open={isResourceModalOpen}
-          onOpenChange={setIsResourceModalOpen}
-        >
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Donate Resources or Cash</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <p>
-                If you want to donate resources or cash, please contact us at
-                the following email address for more details:
-              </p>
-              <p className="font-semibold">contact@examplengo.org</p>
-            </div>
-          </DialogContent>
-        </Dialog>
-        <Dialog open={isCryptoModalOpen} onOpenChange={setIsCryptoModalOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Donate via Crypto (Stablecoins)</DialogTitle>
-            </DialogHeader>
-            <form className="space-y-4">
-              <div>
-                <Label htmlFor="cryptoAmount">Amount (USD)</Label>
-                <Input
-                  id="cryptoAmount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="Enter amount"
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Donate
-              </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
       </motion.div>
+
+      <Dialog open={isOnlineModalOpen} onOpenChange={setIsOnlineModalOpen}>
+        {/* ... rest of the code ... */}
+      </Dialog>
     </div>
   );
 };

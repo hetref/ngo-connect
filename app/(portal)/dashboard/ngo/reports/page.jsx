@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { FileText, Mail, Clock } from "lucide-react";
 import DonationReports from "@/components/reports/donations/donation-reports";
 // import ActivitiesReports from "@/components/reports/activities/activities-reports";
-import MemberReports from "@/components/reports/member-reports";
 import GraphGenerator from "@/components/reports/graph-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import PDFTemplate from "@/components/reports/pdf-template";
@@ -24,6 +23,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import ActivitiesReports from "@/components/reports/activities/activities-reports";
+// import ActivitiesReports from "@/components/reports/activities/activities-reports";
 
 export default function NGOReportsPage() {
   const [user, setUser] = useState(null);

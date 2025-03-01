@@ -97,26 +97,6 @@ export default function Navbar() {
             {/* Auth Buttons */}
             {user ? (
               <>
-                {/* User Actions */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" className="flex items-center gap-2">
-                      <Plus className="h-5 w-5" />
-                      <span className="hidden sm:block">Create</span>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem asChild>
-                      <Link href="/create-post">Create Post</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/add-photos">Add Photos</Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href="/add-product">Add Product</Link>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
 
                 <Link
                   href="/dashboard"

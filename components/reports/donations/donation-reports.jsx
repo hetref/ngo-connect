@@ -30,8 +30,8 @@ export default function DonationReports({ timeFrame }) {
   const [donationStats, setDonationStats] = useState({
     total: 0,
     breakdown: [],
-    topDonors: [],
-  });
+    topDonors: []
+  })
   // Add state for view more toggles
   const [showAllCash, setShowAllCash] = useState(false)
   const [showAllOnline, setShowAllOnline] = useState(false)

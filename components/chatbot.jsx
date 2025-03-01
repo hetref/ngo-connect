@@ -250,7 +250,7 @@ export default function Chatbot() {
                   />
                 )}
               </CardContent>
-              <CardFooter className="p-0">
+              <CardFooter className="p-2">
                 <form
                   onSubmit={handleSubmit}
                   className="flex w-full items-center space-x-4"
@@ -258,12 +258,12 @@ export default function Chatbot() {
                   <Input
                     value={input}
                     onChange={handleInputChange}
-                    className="flex-1 w-[380px] p-5 ml-5"
+                    className="flex-1 w-[380px] p-5 ml-2"
                     placeholder="Type your message here..."
                   />
                   <Button
                     type="submit"
-                    className="size-10"
+                    className="size-10 m-4"
                     disabled={isLoading}
                     size="icon"
                   >

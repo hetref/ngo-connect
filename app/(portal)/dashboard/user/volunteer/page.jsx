@@ -76,12 +76,19 @@ export default function UserVolunteerPage() {
   const { Canvas } = useQRCode();
   const router = useRouter();
 
-  // Function to check if an event is expired
-  const isEventExpired = (eventDate) => {
-    return new Date(eventDate) < new Date();
+  const handleRedirect = () => {
+    router.push("/dashboard/user/activities/search-activity");
   };
 
-  // Function to handle scan button click
+  // Function to extract timestamp from activity ID
+  const getEventTimestamp = (activityId) => {
+    if (!activityId) return 0;
+    const parts = activityId.split("_");
+    if (parts.length > 1) {
+      return parseInt(parts[1]);
+    }
+    return 0;
+  };
   const handleScan = (activityId) => {
     router.push(`/dashboard/scan/participants/${activityId}`);
   };
@@ -277,7 +284,7 @@ export default function UserVolunteerPage() {
               <p className="mb-4">
                 You haven't signed up for any upcoming volunteering activities.
               </p>
-              <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+              <Button className="bg-[#1CAC78] hover:bg-[#158f63]" onClick={handleRedirect}>
                 Browse Activities
               </Button>
             </div>
@@ -567,7 +574,7 @@ export default function UserVolunteerPage() {
       </Card>
 
       <div className="text-center">
-        <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+        <Button className="bg-[#1CAC78] hover:bg-[#158f63]" onClick={handleRedirect}>
           Join More Events!
         </Button>
       </div>

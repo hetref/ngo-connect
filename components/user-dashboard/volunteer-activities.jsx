@@ -3,8 +3,11 @@ import { Button } from "@/components/ui/button"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal } from "lucide-react"
+import { useRouter } from "next/navigation"
 
 export function VolunteerActivities() {
+
+  const router = useRouter();
   const upcomingEvents = [
     { id: 1, date: "2023-08-15", ngo: "Green Earth", role: "Tree Planter" },
     { id: 2, date: "2023-08-20", ngo: "Food for All", role: "Food Distributor" },
@@ -14,6 +17,10 @@ export function VolunteerActivities() {
     { id: 3, date: "2023-07-10", ngo: "Beach Cleanup", role: "Volunteer", status: "Completed" },
     { id: 4, date: "2023-06-25", ngo: "Animal Shelter", role: "Caretaker", status: "Completed" },
   ]
+
+  const handleRedirect = () => {
+    router.push("/dashboard/user/activities/search-activity");
+  };
 
   return (
     <Card className="overflow-hidden">
@@ -95,7 +102,7 @@ export function VolunteerActivities() {
             </TableBody>
           </Table>
         </div>
-        <Button className="w-full bg-[#1CAC78] hover:bg-[#158f63]">Browse New Events</Button>
+        <Button className="w-full bg-[#1CAC78] hover:bg-[#158f63]" onClick={handleRedirect}>Browse New Events</Button>
       </CardContent>
     </Card>
   )

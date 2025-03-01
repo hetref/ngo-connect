@@ -22,7 +22,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import html2canvas from "html2canvas";
+import jsPDF from "jspdf";
 
 // Card components
 const Card = ({ children, className = "" }) => (
@@ -119,6 +122,10 @@ const Badge = ({ children, variant = "default", className = "" }) => {
 };
 
 const ActivityParticipationPage = () => {
+  const router = useRouter();
+  const handleRedirect = () => {
+    router.push("/dashboard/user/activities/search-activity");
+  };
   const [liveEvent, setLiveEvent] = useState(null);
   const [upcomingActivities, setUpcomingActivities] = useState([]);
   const [attendedActivities, setAttendedActivities] = useState([]);
@@ -127,6 +134,9 @@ const ActivityParticipationPage = () => {
   const [error, setError] = useState(null);
   const [expandedQRCode, setExpandedQRCode] = useState(null);
   const [expandedQRTitle, setExpandedQRTitle] = useState("");
+  const [showCertificate, setShowCertificate] = useState(false);
+  const [certificateData, setCertificateData] = useState(null);
+  const [userName, setUserName] = useState("");
   const { Canvas } = useQRCode();
 
   // Function to show expanded QR code dialog
@@ -141,6 +151,12 @@ const ActivityParticipationPage = () => {
     setExpandedQRTitle("");
   };
 
+  // Function to close certificate dialog
+  const closeCertificate = () => {
+    setShowCertificate(false);
+    setCertificateData(null);
+  };
+
   // Function to extract timestamp from activity ID
   const getEventTimestamp = (activityId) => {
     if (!activityId) return 0;
@@ -149,6 +165,109 @@ const ActivityParticipationPage = () => {
       return parseInt(parts[1]);
     }
     return 0;
+  };
+
+  // Function to format date in a readable format
+  const formatDateLong = (dateString) => {
+    if (!dateString) return "No date";
+    const date = new Date(dateString);
+    
+    const options = { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    };
+    
+    return date.toLocaleDateString('en-US', options);
+  };
+
+  // Function to get user data
+  const getUserData = async () => {
+    try {
+      const currentUserId = auth.currentUser?.uid;
+      if (!currentUserId) {
+        throw new Error("User not authenticated");
+      }
+
+      const userDoc = await getDoc(doc(db, "users", currentUserId));
+      if (!userDoc.exists()) {
+        throw new Error("User data not found");
+      }
+
+      const userData = userDoc.data();
+      setUserName(userData.name || "");
+      return userData;
+    } catch (err) {
+      console.error("Error getting user data:", err);
+      return null;
+    }
+  };
+
+  // Function to generate certificate
+  const generateCertificate = async (activity) => {
+    setLoading(true);
+    try {
+      // Get user data
+      const userData = await getUserData();
+      if (!userData) {
+        throw new Error("Could not retrieve user data");
+      }
+
+      // Get NGO data for signature
+      const ngoDoc = await getDoc(doc(db, "ngo", activity.ngoId));
+      const ngoData = ngoDoc.exists() ? ngoDoc.data() : { ngoName: "Organization" };
+
+      // Set certificate data
+      setCertificateData({
+        userName: userData.name || "Participant",
+        userEmail: userData.email || "",
+        eventName: activity.activityDetails?.eventName || "Event",
+        eventDate: formatDateLong(activity.activityDetails?.eventDate),
+        eventLocation: activity.activityDetails?.location || "Location",
+        ngoName: ngoData.ngoName,
+        ngoSignature: ngoData.signatureUrl || "/signature-placeholder.png",
+        role: activity.role || "participant",
+        issuedDate: formatDateLong(new Date()),
+      });
+
+      setShowCertificate(true);
+    } catch (err) {
+      console.error("Error generating certificate:", err);
+      setError("Failed to generate certificate. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to download certificate as PDF
+  const downloadCertificate = async () => {
+    const certificateElement = document.getElementById("certificate-container");
+    
+    if (!certificateElement) return;
+    
+    try {
+      const canvas = await html2canvas(certificateElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false
+      });
+      
+      const imgData = canvas.toDataURL("image/jpeg", 1.0);
+      const pdf = new jsPDF({
+        orientation: "landscape",
+        unit: "mm",
+        format: "a4"
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Certificate_${certificateData.eventName.replace(/\s+/g, "_")}.pdf`);
+    } catch (err) {
+      console.error("Error downloading certificate:", err);
+      setError("Failed to download certificate. Please try again.");
+    }
   };
 
   // Mark attendance for live event
@@ -173,6 +292,7 @@ const ActivityParticipationPage = () => {
         }
 
         const userData = userDoc.data();
+        setUserName(userData.name || "");
         const participationsArray = userData.participations || [];
 
         // Current date for filtering
@@ -336,7 +456,7 @@ const ActivityParticipationPage = () => {
     activity,
     index,
     showQR = false,
-    showCertificate = false
+    showCertificateButton = false
   ) => (
     <div
       key={activity.activityId || index}
@@ -409,9 +529,14 @@ const ActivityParticipationPage = () => {
           </div>
         </div>
       ) : (
-        showCertificate && (
+        showCertificateButton && (
           <div className="text-right">
-            <Button variant="outline" size="sm">
+            <Button 
+              variant="sm" 
+              size="sm" 
+              className="bg-[#1CAC78] hover:bg-green-500 text-white"
+              onClick={() => generateCertificate(activity)}
+            >
               <Download className="w-4 h-4 mr-2" />
               Certificate
             </Button>
@@ -420,7 +545,7 @@ const ActivityParticipationPage = () => {
       )}
     </div>
   );
-
+  
   return (
     <div className="container mx-auto p-4 space-y-8">
       <h1 className="text-3xl font-bold mb-8">Activity Participation</h1>
@@ -521,7 +646,7 @@ const ActivityParticipationPage = () => {
           </Card>
 
           <div className="text-center">
-            <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+            <Button className="bg-[#1CAC78] hover:bg-[#158f63] text-white" onClick={handleRedirect} variant="sm">
               Find More Activities!
             </Button>
           </div>
@@ -563,6 +688,71 @@ const ActivityParticipationPage = () => {
 
           <AlertDialogFooter className="flex-col space-y-2">
             <AlertDialogAction className="w-full">Close</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Certificate Alert Dialog */}
+      <AlertDialog
+        open={showCertificate}
+        onOpenChange={closeCertificate}
+      >
+        <AlertDialogContent className="max-w-4xl p-2">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center">
+              Certificate of Appreciation
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center">
+              Thank you for your participation!
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          {certificateData && (
+            <div id="certificate-container" className="p-6 border-4 border-[#1CAC78] rounded-lg bg-white">
+              <div className="text-center mb-8">
+                <h1 className="text-4xl font-bold text-[#1CAC78]">Certificate of Appreciation</h1>
+                <div className="mt-2 text-gray-600">
+                  This is to certify that
+                </div>
+                <h2 className="text-3xl font-bold mt-4 text-gray-800">{certificateData.userName}</h2>
+                <p className="text-gray-600 mt-1">{certificateData.userEmail}</p>
+                
+                <div className="my-8 text-gray-700 text-lg">
+                  <p>has successfully participated in</p>
+                  <h3 className="text-2xl font-bold mt-2 text-gray-800">{certificateData.eventName}</h3>
+                  <p className="mt-2">
+                    as a <span className="font-semibold">{certificateData.role}</span>
+                  </p>
+                  <p className="mt-2">
+                    on {certificateData.eventDate} at {certificateData.eventLocation}
+                  </p>
+                </div>
+                
+                <div className="flex justify-center mt-10">
+                  <div className="text-center">
+                    <div className="h-12 border-b border-gray-400 w-48 flex justify-center items-end">
+                      
+                    </div>
+                    <p className="mt-2 text-gray-600">For {certificateData.ngoName}</p>
+                  </div>
+                </div>
+                
+                <div className="mt-8 text-gray-500 text-sm">
+                  <p>Issued on: {certificateData.issuedDate}</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <AlertDialogFooter className="flex-col space-y-2 mt-4">
+            <Button
+              className="w-full bg-[#1CAC78] hover:bg-[#158f63] text-white mt-2"
+              onClick={downloadCertificate}
+            >
+              <Download className="w-4 h-4 mr-2" />
+              Download Certificate
+            </Button>
+            <AlertDialogAction className="w-full h-10">Close</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

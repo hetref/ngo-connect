@@ -30,6 +30,8 @@ const NgoRegistrationPage = () => {
   const [verifiedEmail, setVerifiedEmail] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(null);
+  const [ndaAccepted, setNdaAccepted] = useState(false);
+  const [showModal, setShowModal] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -330,6 +332,23 @@ const NgoRegistrationPage = () => {
 
         {error && <div className="text-red-500 text-sm mt-2">{error}</div>}
 
+        <div className="flex items-center gap-2 mt-4 mb-2">
+          <input type="checkbox" id="nda" checked={ndaAccepted} onChange={() => setNdaAccepted(!ndaAccepted)} />
+          <label htmlFor="nda" className="text-sm text-gray-700 dark:text-gray-300">
+            I Agree to the <button type="button" className="text-blue-600 underline" onClick={() => setShowModal(true)}>Non-Disclosure Agreement (NDA)</button>
+          </label>
+        </div>
+
+        {showModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-30 flex justify-center items-center p-4">
+            <div className="bg-white p-6 rounded-lg max-w-md">
+              <h3 className="font-bold text-lg">Non-Disclosure Agreement</h3>
+              <p className="mt-2 text-sm">NGO-CONNECT agrees not to share any confidential data of your NGO with other NGOs or third parties. Any breach of this agreement gives the NGO the right to take legal action.</p>
+              <button className="mt-4 bg-green-600 text-white px-4 py-2 rounded" onClick={() => setShowModal(false)}>Close</button>
+            </div>
+          </div>
+        )}
+
         <button
           type="submit"
           disabled={
@@ -341,7 +360,8 @@ const NgoRegistrationPage = () => {
                 formData.ngoName &&
                 formData.phone &&
                 formData.pan &&
-                invalidInputs.length === 0
+                invalidInputs.length === 0 &&
+                ndaAccepted
               ) // Ensure no validation error exists
             )
           }

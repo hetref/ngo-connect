@@ -1,14 +1,14 @@
 "use client"
 
 import { motion } from "framer-motion"
-import { MetricsOverview } from "@/components/metrics-overview"
-import { QuickActions } from "@/components/quick-actions"
-import { RecentActivities } from "@/components/recent-activities"
-import { EventInsights } from "@/components/event-insights"
-import { ReportsSection } from "@/components/reports-section"
-import { SponsorshipOverview } from "@/components/sponsorship-overview"
-import { Notifications } from "@/components/notifications"
-import { SearchAndFilters } from "@/components/search-and-filters"
+import { MetricsOverview } from "@/components/ngo-dashboard/metrics-overview"
+import { QuickActions } from "@/components/ngo-dashboard/quick-actions"
+import { RecentActivities } from "@/components/ngo-dashboard/recent-activities"
+import { EventInsights } from "@/components/ngo-dashboard/event-insights"
+import { ReportsSection } from "@/components/ngo-dashboard/reports-section"
+import { SponsorshipOverview } from "@/components/ngo-dashboard/sponsorship-overview"
+import { Notifications } from "@/components/ngo-dashboard/notifications"
+import { SearchAndFilters } from "@/components/ngo-dashboard/search-and-filters"
 
 export default function DashboardPage() {
   return (

@@ -5,6 +5,10 @@ import { useState, useEffect } from "react"
 import { onSnapshot, collection, query, getDocs, collectionGroup } from "firebase/firestore"
 import { db } from "@/lib/firebase"
 import { auth } from "@/lib/firebase"
+import { PDFDownloadLink } from "@react-pdf/renderer"
+import { Button } from "@/components/ui/button"
+import { Download } from "lucide-react"
+import DonationReportPDF from "./donation-report-pdf"
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042"]
 
@@ -117,11 +121,41 @@ export default function DonationReports({ timeFrame }) {
   const onlineDonations = donations.filter(d => d.paymentMethod === 'Online')
   const cryptoDonations = donations.filter(d => d.paymentMethod === 'Crypto')
 
+  const generatePDFData = () => {
+    return {
+      ngoInfo: {
+        name: "Your NGO Name", // Replace with actual NGO name
+        address: "Your NGO Address",
+        email: "your@email.com"
+      },
+      timeFrame: timeFrame || "All Time",
+      total: donationStats.total,
+      cryptoTotal: donations
+        .filter(d => d.paymentMethod === 'Crypto')
+        .reduce((sum, d) => sum + Number(d.amount || 0), 0),
+      totalDonors: new Set(donations.map(d => d.name)).size,
+      breakdown: donationStats.breakdown,
+      cashDonations: cashDonations.slice(0, 5),
+      onlineDonations: onlineDonations.slice(0, 5),
+      cryptoDonations: cryptoDonations.slice(0, 5)
+    };
+  };
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle>Donation Overview</CardTitle>
+          <div className="flex justify-between items-center">
+            <CardTitle>Donation Overview</CardTitle>
+            <PDFDownloadLink
+              document={<DonationReportPDF reportData={generatePDFData()} />}
+              fileName="donation-report.pdf"
+            >
+              {({ blob, url, loading, error }) => 
+                loading ? 'Loading document...' : 'Download PDF Report'
+              }
+            </PDFDownloadLink>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="text-2xl font-bold mb-4">Total Donations: ₹{donationStats.total.toLocaleString()}</div>
@@ -157,21 +191,29 @@ export default function DonationReports({ timeFrame }) {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={donationStats.breakdown.filter(item => item.method !== 'Crypto')}
+                      data={donationStats.breakdown}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       outerRadius={80}
                       fill="#8884d8"
                       dataKey="amount"
+                      label={({ method, amount }) => 
+                        method === 'Crypto' 
+                          ? `${amount.toLocaleString()} Tokens`
+                          : `₹${amount.toLocaleString()}`
+                      }
                     >
                       {donationStats.breakdown
-                        .filter(item => item.method !== 'Crypto')
                         .map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
-                    <Legend />
+                    <Legend 
+                      formatter={(value) => 
+                        value === 'Crypto' ? 'Crypto (Tokens)' : value
+                      }
+                    />
                   </PieChart>
                 </ResponsiveContainer>
               </div>

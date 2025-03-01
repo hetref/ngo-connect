@@ -82,6 +82,7 @@ const Layout = ({ children }) => {
     mainNavItems: [
       { name: "Dashboard", icon: LayoutDashboard, href: "/dashboard/ngo" },
       { name: "Reports", icon: FilePenLine, href: "/dashboard/ngo/reports" },
+      { name: "Campaigns", icon: Store, href: "/dashboard/ngo/campaigns" },
     ],
     managementNavItems: [
       {
@@ -89,9 +90,13 @@ const Layout = ({ children }) => {
         icon: CalendarDays,
         href: "/dashboard/ngo/activities",
       },
-      { name: "Members", icon: Users, href: "/dashboard/ngo/members" },
+      { 
+        name: "Members",
+        icon: Users, 
+        href: "/dashboard/ngo/members" 
+      },
       {
-        name: "Coordinated Activities",
+        name: "Coordinator",
         icon: Scan,
         href: "/dashboard/ngo/coordinated-activities",
       },

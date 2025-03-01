@@ -149,7 +149,7 @@ const ParticipantRegistrationForm = () => {
       });
 
       setSuccess(true);
-      router.push("/dashboard/profile");
+      router.push("/dashboard/user/activities");
     } catch (error) {
       console.error("Error submitting form:", error);
       setError("Failed to submit registration");
@@ -196,9 +196,8 @@ const ParticipantRegistrationForm = () => {
         </CardHeader>
         <CardContent>
           <p className="text-center">
-            {isFull
-              ? "The volunteer registration limit has been reached."
-              : "Volunteer registration is currently closed."}
+            Volunteer registration is currently closed.
+            {/* Volunteer registration is currently closed. Please check back later. */}
           </p>
         </CardContent>
         <CardFooter className="justify-center">

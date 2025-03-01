@@ -11,7 +11,7 @@ import { useState } from "react"
 
 // Mock data for demonstration
 const donationOverview = {
-  totalDonations: 25000,
+  totalDonations: 10000,
   sponsoredEvents: 5,
   upcomingRecurring: 1000,
 }

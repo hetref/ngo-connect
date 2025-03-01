@@ -207,7 +207,9 @@ const ActivityFormsPage = () => {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6">Activity Forms Dashboard</h1>
+      <h1 className="text-2xl font-bold mb-6">
+        Activity Registeration Forms Dashboard
+      </h1>
       <div className="grid grid-cols-1 gap-4  mb-8">
         <FormCard
           title="Participation Form"

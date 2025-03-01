@@ -223,7 +223,8 @@ export default function NGOActivitiesPage() {
                     href={`/dashboard/ngo/activities/${activity.id}/forms`}
                     className="bg-white flex border-2 border-black items-center text-sm rounded-lg p-2 shadow-md"
                   >
-                    <MoveUpRight className="mr-2 h-4 w-4" /> Manage Forms
+                    <MoveUpRight className="mr-2 h-4 w-4" /> Manage
+                    Registeration Forms
                   </Link>
                 </div>
               </CardTitle>

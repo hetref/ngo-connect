@@ -3,14 +3,18 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase"; // Adjust import path as needed
-import { MetricsOverview } from "@/components/metrics-overview";
-import { QuickActions } from "@/components/quick-actions";
-import { RecentActivities } from "@/components/recent-activities";
-import { EventInsights } from "@/components/event-insights";
-import { ReportsSection } from "@/components/reports-section";
-import { SponsorshipOverview } from "@/components/sponsorship-overview";
-import { Notifications } from "@/components/notifications";
-import { SearchAndFilters } from "@/components/search-and-filters";
+import { MetricsOverview } from "@/components/ngo-dashboard/metrics-overview";
+import { QuickActions } from "@/components/ngo-dashboard/quick-actions";
+import { RecentActivities } from "@/components/ngo-dashboard/recent-activities";
+import { ReportsSection } from "@/components/ngo-dashboard/reports-section";
+// import { MetricsOverview } from "@/components/metrics-overview";
+// import { QuickActions } from "@/components/quick-actions";
+// import { RecentActivities } from "@/components/recent-activities";
+// // import { EventInsights } from "@/components/event-insights";/
+// import { ReportsSection } from "@/components/reports-section";
+// import { SponsorshipOverview } from "@/components/sponsorship-overview";
+// import { Notifications } from "@/components/notifications";
+// import { SearchAndFilters } from "@/components/search-and-filters";
 
 export default function DashboardPage() {
   const [ngoName, setNgoName] = useState("Loading...");
@@ -83,7 +87,7 @@ export default function DashboardPage() {
       </h1>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="col-span-full sm:col-span-2 lg:col-span-4">
-          <MetricsOverview />
+          <MetricsOverview type="Donations" />
         </div>
         <div className="sm:col-span-1 lg:col-span-2">
           <QuickActions />

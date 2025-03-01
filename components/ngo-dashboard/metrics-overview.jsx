@@ -14,7 +14,7 @@ import {
   where,
 } from "firebase/firestore";
 
-export function MetricsOverview() {
+export function MetricsOverview({ type }) {
   const [totalDonations, setTotalDonations] = useState(0);
   const [totalParticipants, setTotalParticipants] = useState(0);
   const [totalEvents, setTotalEvents] = useState(0);
@@ -162,23 +162,25 @@ export function MetricsOverview() {
 
   return (
     <div className="grid gap-4 md:grid-cols-3">
-      <Card>
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-gray-500">
-                Total Donations
-              </p>
-              <h3 className="mt-1 text-2xl font-bold">
-                ₹{totalDonations ? totalDonations.toLocaleString() : "0"}
-              </h3>
+      {type === "Donations" && (
+        <Card>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-500">
+                  Total Donations
+                </p>
+                <h3 className="mt-1 text-2xl font-bold">
+                  ₹{totalDonations ? totalDonations.toLocaleString() : "0"}
+                </h3>
+              </div>
+              <div className="p-3 bg-green-100 rounded-full">
+                <IndianRupee className="h-6 w-6 text-green-600" />
+              </div>
             </div>
-            <div className="p-3 bg-green-100 rounded-full">
-              <IndianRupee className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardContent className="p-6">

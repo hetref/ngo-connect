@@ -470,7 +470,7 @@ export default function NGOActivitiesPage() {
         )}
       </AnimatePresence>
 
-      <MetricsOverview />
+      <MetricsOverview type="Activity" />
 
       <Tabs
         defaultValue="all-activities"
@@ -489,7 +489,7 @@ export default function NGOActivitiesPage() {
             value="coordinated-activities"
             className={`border px-8 py-3 ${activeTab === "coordinated-activities" ? "bg-green-500 text-white" : ""}`}
           >
-            Coordinated Activities
+            Activities assigned with{" "}
           </TabsTrigger>
         </TabsList>
         <TabsContent value="all-activities">
@@ -655,7 +655,7 @@ export default function NGOActivitiesPage() {
                           onClick={() => handleManageForms(activity.id)}
                         >
                           <MoveUpRight className="mr-2 h-4 w-4" />
-                          Manage Forms
+                          Manage Registeration Forms
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

@@ -82,6 +82,7 @@ export default function DonationVerification({ donationApprovalId }) {
         donatedOn: donationData.donatedOn,
         verifiedOn: currentTimestamp,
         type: donationType,
+        donationApprovalId: donationApprovalId,
       };
 
       await setDoc(newDocRef, verificationData);

@@ -7,10 +7,19 @@ import { DonationsTransactions } from "@/components/donations-transactions";
 import { PayoutManagement } from "@/components/payout-management";
 import { DonorsTable } from "@/components/donors-table";
 import CashDonation from "@/components/ngo/CashDonation";
+import OnlineDonation from "@/components/ngo/OnlineDonation";
 import { CashDonationTable } from "@/components/CashDonationTable";
+import { OnlineDonationTable } from "@/components/OnlineDonationTable";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth, db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  collection,
+  getDocs,
+  collectionGroup,
+  setDoc,
+} from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import Loading from "@/components/loading/Loading";
 import { ResDonationTable } from "@/components/ResDonationTable";
@@ -93,6 +102,9 @@ export default function NGODonationsPage() {
 
       if (ngoDoc.exists()) {
         setNgoProfile(ngoDoc.data());
+
+        // Check if we need to update donation stats in the NGO profile
+        await updateDonationStats(uid);
       }
 
       const userData = userDoc.data();
@@ -114,6 +126,91 @@ export default function NGODonationsPage() {
     } catch (error) {
       console.error("Error checking access:", error);
       router.replace("/login");
+    }
+  };
+
+  // Update donation stats in the NGO profile
+  const updateDonationStats = async (ngoId) => {
+    try {
+      const currentYear = new Date().getFullYear().toString();
+      let allDonations = [];
+
+      // Fetch all cash donations
+      const cashDonations = await getDocs(collectionGroup(db, "cash"));
+      cashDonations.forEach((doc) => {
+        const path = doc.ref.path;
+        if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+          allDonations.push({
+            id: doc.id,
+            ...doc.data(),
+            paymentMethod: "Cash",
+          });
+        }
+      });
+
+      // Fetch all online donations
+      const onlineDonations = await getDocs(collectionGroup(db, "online"));
+      onlineDonations.forEach((doc) => {
+        const path = doc.ref.path;
+        if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+          allDonations.push({
+            id: doc.id,
+            ...doc.data(),
+            paymentMethod: "Online",
+          });
+        }
+      });
+
+      // Calculate total donations
+      const totalDonated = allDonations.reduce(
+        (sum, donation) => sum + Number(donation.amount || 0),
+        0
+      );
+
+      // Calculate cash donations
+      const cashDonated = allDonations
+        .filter((donation) => donation.paymentMethod === "Cash")
+        .reduce((sum, donation) => sum + Number(donation.amount || 0), 0);
+
+      // Calculate online donations
+      const onlineDonated = allDonations
+        .filter((donation) => donation.paymentMethod === "Online")
+        .reduce((sum, donation) => sum + Number(donation.amount || 0), 0);
+
+      // Update the NGO profile with donation stats
+      const ngoRef = doc(db, "ngo", ngoId);
+      const ngoDoc = await getDoc(ngoRef);
+
+      if (ngoDoc.exists()) {
+        const ngoData = ngoDoc.data();
+
+        // Create or update donationsData object
+        const donationsData = {
+          ...(ngoData.donationsData || {}),
+          totalDonated,
+          cashDonated,
+          onlineDonated,
+          lastUpdated: new Date().toISOString(),
+        };
+
+        // Update the NGO document
+        await setDoc(
+          ngoRef,
+          {
+            ...ngoData,
+            donationsData,
+          },
+          { merge: true }
+        );
+
+        // Update local state
+        setNgoProfile({
+          ...ngoData,
+          donationsData,
+        });
+      }
+    } catch (error) {
+      console.error("Error updating donation stats:", error);
     }
   };
 
@@ -177,8 +274,11 @@ export default function NGODonationsPage() {
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
-        <ResourcesDonation />
-        <CashDonation />
+        <div className="flex items-center gap-2">
+          <ResourcesDonation />
+          {/* <OnlineDonation /> */}
+          <CashDonation />
+        </div>
         <div className="flex items-center gap-4">
           {ngoProfile?.donationsData?.isCryptoTransferEnabled &&
             ngoProfile?.donationsData?.ngoOwnerAddContract && (
@@ -227,9 +327,8 @@ export default function NGODonationsPage() {
         <TabsList>
           <TabsTrigger value="donors">Donors</TabsTrigger>
           <TabsTrigger value="cash">Cash</TabsTrigger>
+          <TabsTrigger value="online">Online</TabsTrigger>
           <TabsTrigger value="resources">Resources</TabsTrigger>
-          <TabsTrigger value="payouts">Payouts</TabsTrigger>
-          <TabsTrigger value="transactions">Transactions</TabsTrigger>
         </TabsList>
 
         <TabsContent value="donors">
@@ -240,16 +339,12 @@ export default function NGODonationsPage() {
           <CashDonationTable />
         </TabsContent>
 
+        <TabsContent value="online">
+          <OnlineDonationTable />
+        </TabsContent>
+
         <TabsContent value="resources">
           <ResDonationTable />
-        </TabsContent>
-
-        <TabsContent value="payouts">
-          <PayoutManagement />
-        </TabsContent>
-
-        <TabsContent value="transactions">
-          <DonationsTransactions />
         </TabsContent>
       </Tabs>
     </div>

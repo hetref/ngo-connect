@@ -26,6 +26,7 @@ import {
 import { useReadContract } from "wagmi";
 import { formatEther, parseUnits } from "ethers";
 import { toast } from "react-hot-toast";
+import { currentTimestamp } from "@/constants";
 
 const DonateNow = ({ ngoData }) => {
   const [isOnlineModalOpen, setIsOnlineModalOpen] = useState(false);
@@ -162,11 +163,12 @@ const DonateNow = ({ ngoData }) => {
           paymentId: paymentResponse.razorpay_payment_id,
           orderId: paymentResponse.razorpay_order_id,
           signature: paymentResponse.razorpay_signature,
+          date: new Date().toISOString(),
         };
         await sendWhatsappMessage(
           donationData.name,
           ngoData.ngoName,
-          new Date().toISOString(),
+          currentTimestamp,
           donationData.email,
           donationData.phone,
           donationData.amount

@@ -12,8 +12,8 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { FileText, Mail, Clock } from "lucide-react";
-import DonationReports from "@/components/reports/donation-reports";
-import ActivitiesReports from "@/components/reports/activities-reports";
+import DonationReports from "@/components/reports/donations/donation-reports";
+// import ActivitiesReports from "@/components/reports/activities/activities-reports";
 import MemberReports from "@/components/reports/member-reports";
 import GraphGenerator from "@/components/reports/graph-generator";
 import { PDFDownloadLink } from "@react-pdf/renderer";
@@ -23,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
+import ActivitiesReports from "@/components/reports/activities/activities-reports";
 
 export default function NGOReportsPage() {
   const [user, setUser] = useState(null);
@@ -172,7 +173,7 @@ export default function NGOReportsPage() {
         <TabsList>
           <TabsTrigger value="donations">Donations</TabsTrigger>
           <TabsTrigger value="activities">Activities</TabsTrigger>
-          <TabsTrigger value="members">Members</TabsTrigger>
+          {/* <TabsTrigger value="members">Members</TabsTrigger> */}
           <TabsTrigger value="graphs">Graph Generator</TabsTrigger>
         </TabsList>
 
@@ -184,9 +185,9 @@ export default function NGOReportsPage() {
           <ActivitiesReports timeFrame={timeFrame} />
         </TabsContent>
 
-        <TabsContent value="members">
+        {/* <TabsContent value="members">
           <MemberReports timeFrame={timeFrame} />
-        </TabsContent>
+        </TabsContent> */}
 
         <TabsContent value="graphs">
           <GraphGenerator timeFrame={timeFrame} />

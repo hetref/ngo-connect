@@ -6,7 +6,7 @@ import { CheckCircleIcon, CreditCard } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import React, { useState, useEffect } from "react";
 import { db } from "@/lib/firebase"; // Import Firestore
-import { doc, updateDoc, onSnapshot } from "firebase/firestore"; // Import updateDoc and onSnapshot functions
+import { doc, updateDoc, onSnapshot, getDoc } from "firebase/firestore"; // Import updateDoc, onSnapshot, and getDoc functions
 import toast from "react-hot-toast";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
@@ -19,7 +19,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     razorpayKeySecret: "",
     isBankTransferEnabled: false,
     isCryptoTransferEnabled: false,
-    cryptoWalletAddress: walletAddress,
+    cryptoWalletAddress: "",
     bankTransferDetails: {
       accountHolderName: "",
       bankName: "",
@@ -39,7 +39,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     error: ngoOwnerError,
     isPending: ngoOwnerAddPending,
   } = useReadContract({
-    address: "0x0d6520f87a7c18bf10972a4E47F99338DE64B2B8",
+    address: "0xBe1cC0D67244B29B903848EF52530538830bD6d7",
     abi: SuperAdminABI,
     functionName: "ngoContracts",
     args: [walletAddress],
@@ -77,10 +77,46 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     }
   }, [walletAddress, isConnected]);
 
+  useEffect(() => {
+    const updateContractAddress = async () => {
+      if (!ngoId || !formattedNgoOwnerContract) return;
+
+      // Get current Firestore data
+      const docRef = doc(db, "ngo", ngoId);
+      const docSnap = await getDoc(docRef);
+
+      if (docSnap.exists()) {
+        const firestoreContractAddress =
+          docSnap.data()?.donationsData?.ngoOwnerAddContract;
+
+        // Check if addresses differ and it's not a zero-address-to-null case
+        const isZeroAddressCase =
+          ngoOwnerAddContract ===
+            "0x0000000000000000000000000000000000000000" &&
+          firestoreContractAddress === null;
+
+        if (
+          firestoreContractAddress !== formattedNgoOwnerContract &&
+          !isZeroAddressCase
+        ) {
+          await updateDoc(docRef, {
+            "donationsData.ngoOwnerAddContract": formattedNgoOwnerContract,
+          });
+          console.log("Contract address updated in Firestore");
+        }
+      }
+    };
+
+    // Run check whenever contract addresses change
+    if (ngoOwnerAddContract !== undefined) {
+      updateContractAddress();
+    }
+  }, [ngoOwnerAddContract, formattedNgoOwnerContract, ngoId]);
+
   const addNgoInContract = async () => {
     try {
       await writeContract({
-        address: "0x0d6520f87a7c18bf10972a4E47F99338DE64B2B8",
+        address: "0xBe1cC0D67244B29B903848EF52530538830bD6d7",
         abi: SuperAdminABI,
         functionName: "createNGO",
         args: [walletAddress, "0xAbFb2AeF4aAC335Cda2CeD2ddd8A6521047e8ddF"],

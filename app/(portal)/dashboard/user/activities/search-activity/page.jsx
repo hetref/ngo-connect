@@ -311,7 +311,7 @@ export default function SearchActivitiesPage() {
               </div>
               <Button
                 onClick={handleSearch}
-                className="absolute right-0 top-0 bg-[#1CAC78] hover:bg-[#158f63]"
+                className="absolute right-2 top-1 bg-[#1CAC78] hover:bg-[#158f63]"
               >
                 Search
               </Button>

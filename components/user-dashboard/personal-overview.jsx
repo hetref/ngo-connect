@@ -121,23 +121,40 @@ export function PersonalOverview() {
 
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">✅ {user.stats.eventsVolunteered}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Events Volunteered</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              ✅ {user.stats.eventsVolunteered}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Events Volunteered
+            </span>
           </div>
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">❤️ ₹{user.stats.totalDonations.toLocaleString()}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Total Donations</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              ❤️ ₹{user.stats.totalDonations.toLocaleString()}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Total Donations
+            </span>
           </div>
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">🎖 {user.stats.badgesEarned}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Badges Earned</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              🎖 {user.stats.badgesEarned}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Badges Earned
+            </span>
           </div>
           <div className="flex flex-col items-center p-3 bg-secondary rounded-lg">
-            <span className="text-xl sm:text-2xl font-bold">📅 {user.stats.upcomingEvents}</span>
-            <span className="text-xs sm:text-sm text-muted-foreground text-center">Upcoming Events</span>
+            <span className="text-xl sm:text-2xl font-bold">
+              📅 {user.stats.upcomingEvents}
+            </span>
+            <span className="text-xs sm:text-sm text-muted-foreground text-center">
+              Upcoming Events
+            </span>
           </div>
         </div>
       </CardContent>
     </Card>
+  );
   );
 }

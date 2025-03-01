@@ -327,7 +327,7 @@ const DonateNow = ({ ngoData }) => {
         address: ngoData?.donationsData?.ngoOwnerAddContract,
         abi: NGOABI,
         functionName: "donate",
-        args: [parsedAmount],
+        args: [parsedAmount, true],
       });
       toast.success("Donation transaction submitted!");
       setDonationHash(hash);

@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { useParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, MapPin, Users } from "lucide-react";
+import { ArrowRightIcon, Calendar, MapPin, Users } from "lucide-react";
 import { doc, getDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase"; // Ensure correct Firebase setup
 
@@ -74,14 +74,6 @@ export default function UserActivitiesPage() {
             alt={event.eventName}
             className="h-full w-full object-cover"
           />
-          <div className="absolute bottom-4 right-4 space-x-2">
-            <Button variant="secondary" size="sm" onClick={prevImage}>
-              Previous
-            </Button>
-            <Button variant="secondary" size="sm" onClick={nextImage}>
-              Next
-            </Button>
-          </div>
         </div>
         <CardHeader>
           <CardTitle className="text-3xl">{event.eventName}</CardTitle>
@@ -96,21 +88,13 @@ export default function UserActivitiesPage() {
               <MapPin className="h-5 w-5" />
               <span>{event.location}</span>
             </div>
-            <div className="flex items-center space-x-2">
-              <Users className="h-5 w-5" />
-              <span>Accepting {event.acceptingVolunteers} volunteers</span>
-            </div>
           </div>
           <p className="mb-6 text-gray-700">{event.shortDescription}</p>
           <div className="flex space-x-4">
             <Button asChild>
-              <a href={`/opt-in-volunteer/${event.ngoId}/${event.eventId}`}>
-                Register as Volunteer
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
               <a href={`/opt-in-participant/${event.ngoId}/${event.eventId}`}>
-                Register as Participant
+                Register as Participant{" "}
+                <ArrowRightIcon className="inline ml-1" />
               </a>
             </Button>
           </div>

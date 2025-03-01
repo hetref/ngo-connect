@@ -12,18 +12,15 @@ import {
   collection,
 } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase"; // Make sure you import your Firebase config
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 
-const ParticipantQRScannerPage = () => {
+const QRScannerPage = () => {
   const [scanning, setScanning] = useState(true);
   const [scannedResults, setScannedResults] = useState([]);
   const [processing, setProcessing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [notification, setNotification] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [authorized, setAuthorized] = useState(false);
   const params = useParams();
-  const router = useRouter();
   const currentActivityId = params.activityId;
 
   // Custom notification function
@@ -36,85 +33,28 @@ const ParticipantQRScannerPage = () => {
     }, 3000);
   };
 
-  // Check user authorization
-  useEffect(() => {
-    const checkAuthorization = async (user) => {
-      if (!user || !currentActivityId) {
-        setAuthorized(false);
-        setLoading(false);
-        router.push("/dashboard");
-        return;
-      }
-
-      try {
-        // Check if the user is a volunteer for this activity
-        const userRef = doc(db, "users", user.uid);
-        const userDoc = await getDoc(userRef);
-
-        if (!userDoc.exists()) {
-          setAuthorized(false);
-          setLoading(false);
-          router.push("/dashboard");
-          return;
-        }
-
-        const userData = userDoc.data();
-        const volunteering = userData.volunteering || [];
-
-        // Check if the user is a volunteer for this specific activity and has checked in
-        const isAuthorized = volunteering.some(
-          (v) => v.activityId === currentActivityId && v.attendance === true
-        );
-
-        if (!isAuthorized) {
-          // User is not authorized, redirect to dashboard
-          setAuthorized(false);
-          router.push("/dashboard");
-        } else {
-          setAuthorized(true);
-        }
-      } catch (error) {
-        console.error("Authorization check failed:", error);
-        router.push("/dashboard");
-      }
-
-      setLoading(false);
-    };
-
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      if (user) {
-        setCurrentUser(user);
-        checkAuthorization(user);
-      } else {
-        setCurrentUser(null);
-        setAuthorized(false);
-        setLoading(false);
-        router.push("/dashboard");
-      }
-    });
-
-    return () => unsubscribe();
-  }, [currentActivityId, router]);
-
-  // Get current user and load previous scans
+  // Get current user on component mount and load previous scans
   useEffect(() => {
     const loadPreviousScans = async () => {
-      if (currentUser?.uid && currentActivityId && authorized) {
+      if (currentUser?.uid && currentActivityId) {
         try {
-          // Fetch previously scanned participants from the volunteer's record
-          const volunteerRef = doc(db, "users", currentUser.uid);
-          const volunteerDoc = await getDoc(volunteerRef);
+          const coordinatedEventRef = doc(
+            db,
+            "users",
+            currentUser.uid,
+            "coordinatedEvents",
+            currentActivityId
+          );
 
-          if (volunteerDoc.exists()) {
-            const volunteering = volunteerDoc.data().volunteering || [];
-            const currentActivity = volunteering.find(
-              (v) => v.activityId === currentActivityId
-            );
+          const eventDoc = await getDoc(coordinatedEventRef);
+          if (eventDoc.exists()) {
+            const eventData = eventDoc.data();
+            const attendedParticipants = eventData.attendedParticipants || [];
 
-            if (currentActivity && currentActivity.scannedParticipants) {
-              // For each scanned participant, fetch their name
+            if (attendedParticipants.length > 0) {
+              // For each attended participant, fetch their name and create a scan entry
               const previousScans = await Promise.all(
-                currentActivity.scannedParticipants.map(async (participant) => {
+                attendedParticipants.map(async (participant) => {
                   const participantDoc = await getDoc(
                     doc(db, "users", participant.participationId)
                   );
@@ -153,15 +93,23 @@ const ParticipantQRScannerPage = () => {
       }
     };
 
-    if (authorized) {
-      loadPreviousScans();
-    }
-  }, [currentUser, currentActivityId, authorized]);
+    loadPreviousScans();
+  }, [currentUser, currentActivityId]);
+
+  useEffect(() => {
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      if (user) {
+        setCurrentUser(user);
+      } else {
+        setCurrentUser(null);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   // Function to remove scanner SVG lines
   useEffect(() => {
-    if (!authorized) return;
-
     const removeScannerLines = () => {
       // Target SVG elements specifically
       const scannerSvgs = document.querySelectorAll(
@@ -193,22 +141,93 @@ const ParticipantQRScannerPage = () => {
     const interval = setInterval(removeScannerLines, 100);
 
     return () => clearInterval(interval);
-  }, [scanning, authorized]);
+  }, [scanning]);
 
   const updateDatabase = async (parsedData) => {
     try {
       setProcessing(true);
-      const { activityId, participationId, ngoId } = parsedData;
+      const { activityId, participationId, ngoId, timestamp } = parsedData;
 
       if (!activityId || !participationId) {
         throw new Error("Missing required data in QR code");
       }
 
-      // First check if this participant is already marked as attended
+      // First check if this participant is already marked as attended in the database
       let alreadyAttended = false;
 
-      // 1. Check in activities collection
-      const participantActivityRef = doc(
+      // Check in the coordinator's records
+      if (currentUser?.uid) {
+        const coordinatedEventRef = doc(
+          db,
+          "users",
+          currentUser.uid,
+          "coordinatedEvents",
+          activityId
+        );
+
+        const eventDoc = await getDoc(coordinatedEventRef);
+        if (eventDoc.exists()) {
+          const eventData = eventDoc.data();
+          // Check if this participant is already in attendedParticipants array
+          alreadyAttended = eventData.attendedParticipants?.some(
+            (participant) => participant.participationId === participationId
+          );
+
+          if (alreadyAttended) {
+            return {
+              success: true,
+              participantName: "Already Checked In",
+              alreadyAttended: true,
+            };
+          }
+
+          // If not already attended, continue with attendance marking
+          await updateDoc(coordinatedEventRef, {
+            attendedParticipants: arrayUnion({
+              participationId,
+              scannedAt: new Date().toISOString(),
+            }),
+          });
+        }
+      }
+
+      // Continue with updating the participant's record
+      const participantRef = doc(db, "users", participationId);
+      const participantDoc = await getDoc(participantRef);
+
+      if (participantDoc.exists()) {
+        // Check if attendance is already true in participant's record
+        const participantsArray = participantDoc.data().participations || [];
+        const currentAttendanceStatus = participantsArray.find(
+          (p) => p.activityId === activityId
+        )?.attendance;
+
+        if (currentAttendanceStatus) {
+          // Already marked as attended in the participant's record
+          const participantName = participantDoc.data().name || "Participant";
+          return {
+            success: true,
+            participantName,
+            alreadyAttended: true,
+          };
+        }
+
+        const updatedParticipantsArray = participantsArray.map(
+          (participant) => {
+            if (participant.activityId === activityId) {
+              return { ...participant, attendance: true };
+            }
+            return participant;
+          }
+        );
+
+        await updateDoc(participantRef, {
+          participations: updatedParticipantsArray,
+        });
+      }
+
+      // Update activities collection
+      const activityParticipantRef = doc(
         db,
         "activities",
         activityId,
@@ -216,105 +235,28 @@ const ParticipantQRScannerPage = () => {
         participationId
       );
 
-      const participantActivityDoc = await getDoc(participantActivityRef);
+      // Check if already marked as attended in activity's participations subcollection
+      const activityParticipantDoc = await getDoc(activityParticipantRef);
       if (
-        participantActivityDoc.exists() &&
-        participantActivityDoc.data().attendance
+        activityParticipantDoc.exists() &&
+        activityParticipantDoc.data().attendance
       ) {
-        alreadyAttended = true;
+        const participantName = participantDoc.exists()
+          ? participantDoc.data().name || "Participant"
+          : "Participant";
+
+        return {
+          success: true,
+          participantName,
+          alreadyAttended: true,
+        };
       }
 
-      if (!alreadyAttended) {
-        // Get coordinator ID for this activity
-        const activityRef = doc(db, "activities", activityId);
-        const activityDoc = await getDoc(activityRef);
-        const coordinatorId = activityDoc.exists()
-          ? activityDoc.data().coordinatorId
-          : null;
-
-        if (!coordinatorId) {
-          throw new Error("Could not find coordinator for this activity");
-        }
-
-        // 1. Update activities collection - participant attendance
-        await updateDoc(participantActivityRef, {
-          attendance: true,
-        });
-
-        // 2. Update participant's record in users collection
-        const participantRef = doc(db, "users", participationId);
-        const participantDoc = await getDoc(participantRef);
-
-        if (participantDoc.exists()) {
-          const participationsArray =
-            participantDoc.data().participations || [];
-
-          const updatedParticipationsArray = participationsArray.map(
-            (participation) => {
-              if (participation.activityId === activityId) {
-                return { ...participation, attendance: true };
-              }
-              return participation;
-            }
-          );
-
-          await updateDoc(participantRef, {
-            participations: updatedParticipationsArray,
-          });
-        }
-
-        // 3. Update coordinator's attendedParticipants array
-        const coordinatorEventRef = doc(
-          db,
-          "users",
-          coordinatorId,
-          "coordinatedEvents",
-          activityId
-        );
-
-        await updateDoc(coordinatorEventRef, {
-          attendedParticipants: arrayUnion({
-            participationId,
-            scannedAt: new Date().toISOString(),
-            scannedBy: currentUser.uid,
-          }),
-        });
-
-        // 4. Update volunteer's record to track scanned participants (optional)
-        const volunteerRef = doc(db, "users", currentUser.uid);
-        const volunteerDoc = await getDoc(volunteerRef);
-
-        if (volunteerDoc.exists()) {
-          const volunteeringArray = volunteerDoc.data().volunteering || [];
-          const activityIndex = volunteeringArray.findIndex(
-            (v) => v.activityId === activityId
-          );
-
-          if (activityIndex !== -1) {
-            // Create a copy of the volunteering array
-            const updatedVolunteeringArray = [...volunteeringArray];
-
-            // Initialize scannedParticipants array if it doesn't exist
-            if (!updatedVolunteeringArray[activityIndex].scannedParticipants) {
-              updatedVolunteeringArray[activityIndex].scannedParticipants = [];
-            }
-
-            // Add the participant to scannedParticipants
-            updatedVolunteeringArray[activityIndex].scannedParticipants.push({
-              participationId,
-              scannedAt: new Date().toISOString(),
-            });
-
-            await updateDoc(volunteerRef, {
-              volunteering: updatedVolunteeringArray,
-            });
-          }
-        }
-      }
+      await updateDoc(activityParticipantRef, {
+        attendance: true,
+      });
 
       // Get participant name for display
-      const participantRef = doc(db, "users", participationId);
-      const participantDoc = await getDoc(participantRef);
       const participantName = participantDoc.exists()
         ? participantDoc.data().name || "Participant"
         : "Participant";
@@ -322,7 +264,6 @@ const ParticipantQRScannerPage = () => {
       return {
         success: true,
         participantName,
-        alreadyAttended,
       };
     } catch (error) {
       console.error("Error updating database:", error);
@@ -400,6 +341,7 @@ const ParticipantQRScannerPage = () => {
               `${updateResult.participantName} was already marked present`,
               "warning"
             );
+            // Don't add to scannedResults since it was already processed
           } else {
             // Add new scan to the beginning of the array (only for new check-ins)
             const newScan = {
@@ -453,41 +395,6 @@ const ParticipantQRScannerPage = () => {
     setScannedResults((prev) => prev.filter((result) => result.id !== id));
   };
 
-  // Show loading state
-  if (loading) {
-    return (
-      <div className="container mx-auto p-4 max-w-md flex flex-col items-center justify-center min-h-screen">
-        <Loader2 className="animate-spin text-primary h-12 w-12 mb-4" />
-        <p className="text-gray-500">Verifying access...</p>
-      </div>
-    );
-  }
-
-  // If not authorized and not loading, the redirect should have happened
-  // This is just a fallback in case the redirect fails
-  if (!authorized && !loading) {
-    return (
-      <div className="container mx-auto p-4 max-w-md">
-        <Card className="shadow-md">
-          <CardHeader>
-            <CardTitle>Access Denied</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-center mb-4">
-              You are not authorized to access this scanner. You must be a
-              volunteer for this activity and have checked in.
-            </p>
-            <div className="flex justify-center">
-              <Button onClick={() => router.push("/dashboard")}>
-                Return to Dashboard
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto p-4 max-w-md">
       {/* Custom notification component */}
@@ -528,7 +435,7 @@ const ParticipantQRScannerPage = () => {
       <Card className="mb-4 shadow-md">
         <CardHeader className="pb-2">
           <CardTitle className="flex justify-between items-center">
-            <span>Participant Scanner</span>
+            <span>QR Attendance Scanner</span>
             <Button
               variant={scanning ? "destructive" : "default"}
               onClick={toggleScanner}
@@ -634,7 +541,7 @@ const ParticipantQRScannerPage = () => {
         <CardContent>
           {scannedResults.length === 0 ? (
             <div className="text-center p-6 text-gray-500">
-              <p>No participants checked in yet</p>
+              <p>No participations checked in yet</p>
             </div>
           ) : (
             <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
@@ -800,4 +707,4 @@ function showSuccessAnimation(message) {
   }
 }
 
-export default ParticipantQRScannerPage;
+export default QRScannerPage;

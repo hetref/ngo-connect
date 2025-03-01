@@ -326,7 +326,7 @@ export default function NGOActivitiesPage() {
   };
 
   const handleScanNow = (activityId) => {
-    router.push(`/dashboard/scan/volunteers/${activityId}`);
+    router.push(`/dashboard/scan/participants/${activityId}`);
   };
 
   const handleEdit = (activity) => {

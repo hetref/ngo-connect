@@ -272,14 +272,14 @@ export default function NGODonationsPage() {
 
   return (
     <div className="container mx-auto p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
-        <div className="flex items-center gap-2">
+      <h1 className="text-2xl font-bold">NGO Donations Dashboard</h1>
+      <div className="flex flex-col-reverse gap-3 mt-4 justify-between items-center mb-6">
+        {/* <div className="flex items-center gap-2">
           <ResourcesDonation />
-          {/* <OnlineDonation /> */}
+          <OnlineDonation />
           <CashDonation />
-        </div>
-        <div className="flex items-center gap-4">
+        </div> */}
+        {/* <d  iv className="flex items-center gap-4">
           {ngoProfile?.donationsData?.isCryptoTransferEnabled &&
             ngoProfile?.donationsData?.ngoOwnerAddContract && (
               <>
@@ -316,7 +316,7 @@ export default function NGODonationsPage() {
                 </div>
               </>
             )}
-        </div>
+        </d> */}
       </div>
 
       {/* Stats and Charts - Always visible */}

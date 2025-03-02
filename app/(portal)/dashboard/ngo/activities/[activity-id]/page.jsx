@@ -192,39 +192,43 @@ export default function NGOActivitiesPage() {
         className="container mx-auto"
       >
         <Card className="overflow-hidden relative">
-          <div className="absolute top-4 right-4 z-10 flex space-x-2">
-            {user?.uid === activity.ngoId && (
-              <>
-                <Button
-                  className="bg-[#1CAC78] hover:bg-[#158f63]"
-                  onClick={handleEdit}
-                >
-                  <Edit className="mr-2 h-4 w-4" /> Edit Event
-                </Button>
-                <Button variant="destructive" onClick={handleDelete}>
-                  <Trash2 className="mr-2 h-4 w-4" /> Delete Event
-                </Button>
-              </>
-            )}
-            <Link
-              href={`/dashboard/ngo/activities/${activity.id}/forms`}
-              className="bg-white flex items-center rounded-lg p-2 shadow-md"
-            >
-              <MoveUpRight className="mr-2 h-4 w-4" /> Manage Forms
-            </Link>
-          </div>
-
           <div className="relative h-96">
             <Image
               src={activity.featuredImageUrl || "/placeholder.svg"}
               alt={activity.eventName}
               layout="fill"
-              objectFit="contain"
+              objectFit="cover"
               className="absolute inset-0"
             />
           </div>
           <CardHeader>
-            <CardTitle className="text-3xl">{activity.eventName}</CardTitle>
+            <div>
+              <CardTitle className="text-3xl flex items-center justify-between">
+                {activity.eventName}{" "}
+                <div className="flex items-center space-x-2 text-gray-500">
+                  {user?.uid === activity.ngoId && (
+                    <>
+                      <Button
+                        className="bg-[#1CAC78] hover:bg-[#158f63] "
+                        onClick={handleEdit}
+                      >
+                        <Edit className="mr-2 h-4 w-4" /> Edit Event
+                      </Button>
+                      <Button variant="destructive" onClick={handleDelete}>
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete Event
+                      </Button>
+                    </>
+                  )}
+                  <Link
+                    href={`/dashboard/ngo/activities/${activity.id}/forms`}
+                    className="bg-white flex border-2 border-black items-center text-sm rounded-lg p-2 shadow-md"
+                  >
+                    <MoveUpRight className="mr-2 h-4 w-4" /> Manage
+                    Registeration Forms
+                  </Link>
+                </div>
+              </CardTitle>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex items-center space-x-4 text-gray-500">
@@ -264,7 +268,6 @@ export default function NGOActivitiesPage() {
             </div>
           </CardContent>
         </Card>
-        <PayoutManagement />
       </motion.div>
 
       {/* Edit Dialog */}

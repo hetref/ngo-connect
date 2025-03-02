@@ -145,28 +145,6 @@ export default function NGOReportsPage() {
             <SelectItem value="1year">1 Year</SelectItem>
           </SelectContent>
         </Select>
-        <div className="space-x-2">
-          <PDFDownloadLink
-            document={<PDFTemplate reportData={reportData} />}
-            fileName={`NGO_Report_${timeFrame}.pdf`}
-          >
-            {({ blob, url, loading, error }) => (
-              <Button
-                onClick={handleExportPDF}
-                disabled={loading || isExporting}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                {loading ? "Generating..." : "Export PDF"}
-              </Button>
-            )}
-          </PDFDownloadLink>
-          <Button onClick={handleShareReport}>
-            <Mail className="mr-2 h-4 w-4" /> Share Report
-          </Button>
-          <Button onClick={handleScheduleReport}>
-            <Clock className="mr-2 h-4 w-4" /> Schedule Report
-          </Button>
-        </div>
       </div>
 
       <Tabs defaultValue="donations" className="space-y-4">

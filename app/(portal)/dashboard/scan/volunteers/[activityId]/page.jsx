@@ -198,7 +198,7 @@ const QRScannerPage = () => {
         // You might want to check here if attendance is already true
         const volunteeringArray = volunteerDoc.data().volunteering || [];
         const currentAttendanceStatus = volunteeringArray.find(
-          (v) => v.activityId === activityId
+          (v) => (v.activityId = a == activityId)
         )?.attendance;
 
         if (currentAttendanceStatus) {

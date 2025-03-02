@@ -149,16 +149,7 @@ const Layout = ({ children }) => {
         icon: CalendarDays,
         href: "/dashboard/ngo/activities",
       },
-      {
-        name: "Members",
-        icon: Users,
-        href: "/dashboard/ngo/members",
-      },
-      {
-        name: "Coordinator",
-        icon: Scan,
-        href: "/dashboard/ngo/coordinated-activities",
-      },
+      { name: "Members", icon: Users, href: "/dashboard/ngo/members" },
     ],
     financeNavItems: [
       {

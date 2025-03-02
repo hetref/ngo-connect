@@ -33,9 +33,7 @@ const ActivityFormsPage = () => {
   const [ngoId, setNgoId] = useState("");
   const [activityData, setActivityData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [showVolunteerDialog, setShowVolunteerDialog] = useState(false);
   const [showParticipantDialog, setShowParticipantDialog] = useState(false);
-  const [volunteerLimit, setVolunteerLimit] = useState("");
   const [participantLimit, setParticipantLimit] = useState("");
   const [isEditing, setIsEditing] = useState(false);
   const [emailInvitations, setEmailInvitations] = useState([]);
@@ -62,12 +60,9 @@ const ActivityFormsPage = () => {
           const data = docSnapshot.data();
           setActivityData({
             ...data,
-            volunteerFormStatus: data.volunteerFormStatus || "not-accepting",
             participationFormStatus:
               data.participationFormStatus || "not-accepting",
-            noOfVolunteers: data.noOfVolunteers || 0,
             noOfParticipants: data.noOfParticipants || 0,
-            acceptingVolunteers: data.acceptingVolunteers || 0,
             acceptingParticipants: data.acceptingParticipants || 0,
           });
         }
@@ -82,22 +77,12 @@ const ActivityFormsPage = () => {
   }, [ngoId, activityId]);
 
   const handleToggle = async (formType) => {
-    const isVolunteerForm = formType === "volunteer";
-    const statusField = isVolunteerForm
-      ? "volunteerFormStatus"
-      : "participationFormStatus";
+    const statusField = "participationFormStatus";
     const newStatus =
       activityData[statusField] === "accepting" ? "not-accepting" : "accepting";
 
-    if (
-      newStatus === "accepting" &&
-      !activityData[
-        isVolunteerForm ? "acceptingVolunteers" : "acceptingParticipants"
-      ]
-    ) {
-      isVolunteerForm
-        ? setShowVolunteerDialog(true)
-        : setShowParticipantDialog(true);
+    if (newStatus === "accepting" && !activityData["acceptingParticipants"]) {
+      setShowParticipantDialog(true);
     } else {
       await updateActivityDoc({ [statusField]: newStatus });
     }
@@ -126,9 +111,8 @@ const ActivityFormsPage = () => {
     alert("Invitations sent successfully!");
   };
 
-  const handleLimitSubmit = async (formType) => {
-    const isVolunteerForm = formType === "volunteer";
-    const limit = isVolunteerForm ? volunteerLimit : participantLimit;
+  const handleLimitSubmit = async () => {
+    const limit = participantLimit;
 
     if (!limit || isNaN(limit) || parseInt(limit) <= 0) {
       alert("Please enter a valid number");
@@ -136,21 +120,14 @@ const ActivityFormsPage = () => {
     }
 
     const updates = {
-      [isVolunteerForm ? "volunteerFormStatus" : "participationFormStatus"]:
-        "accepting",
-      [isVolunteerForm ? "acceptingVolunteers" : "acceptingParticipants"]:
-        parseInt(limit),
-      [isVolunteerForm ? "noOfVolunteers" : "noOfParticipants"]:
-        activityData?.[
-          isVolunteerForm ? "noOfVolunteers" : "noOfParticipants"
-        ] || 0,
+      participationFormStatus: "accepting",
+      acceptingParticipants: parseInt(limit),
+      noOfParticipants: activityData?.["noOfParticipants"] || 0,
     };
 
     await updateActivityDoc(updates);
-    isVolunteerForm
-      ? setShowVolunteerDialog(false)
-      : setShowParticipantDialog(false);
-    isVolunteerForm ? setVolunteerLimit("") : setParticipantLimit("");
+    setShowParticipantDialog(false);
+    setParticipantLimit("");
   };
 
   const updateActivityDoc = async (updates) => {
@@ -163,29 +140,16 @@ const ActivityFormsPage = () => {
     }
   };
 
-  const handleEditLimit = (formType) => {
+  const handleEditLimit = () => {
     setIsEditing(true);
-    const limit =
-      formType === "volunteer"
-        ? activityData.acceptingVolunteers
-        : activityData.acceptingParticipants;
-    formType === "volunteer"
-      ? setVolunteerLimit(limit.toString())
-      : setParticipantLimit(limit.toString());
-    formType === "volunteer"
-      ? setShowVolunteerDialog(true)
-      : setShowParticipantDialog(true);
+    const limit = activityData.acceptingParticipants;
+    setParticipantLimit(limit.toString());
+    setShowParticipantDialog(true);
   };
 
-  const FormCard = ({ title, formType, status }) => {
-    const isVolunteerForm = formType === "volunteer";
-    const currentCount =
-      activityData?.[isVolunteerForm ? "noOfVolunteers" : "noOfParticipants"] ||
-      0;
-    const limit =
-      activityData?.[
-        isVolunteerForm ? "acceptingVolunteers" : "acceptingParticipants"
-      ];
+  const FormCard = ({ title, status }) => {
+    const currentCount = activityData?.["noOfParticipants"] || 0;
+    const limit = activityData?.["acceptingParticipants"];
     const isAtLimit = limit && currentCount >= limit;
     const isAccepting = status === "accepting";
 
@@ -198,12 +162,12 @@ const ActivityFormsPage = () => {
               {(isAccepting || currentCount > 0) && (
                 <Pencil
                   className="h-4 w-4 cursor-pointer text-gray-500 hover:text-gray-700"
-                  onClick={() => handleEditLimit(formType)}
+                  onClick={() => handleEditLimit()}
                 />
               )}
               <Switch
                 checked={isAccepting}
-                onCheckedChange={() => handleToggle(formType)}
+                onCheckedChange={() => handleToggle("participation")}
                 disabled={isAtLimit}
               />
             </div>
@@ -219,30 +183,18 @@ const ActivityFormsPage = () => {
             </p>
             {(isAccepting || currentCount > 0) && (
               <p>
-                {isVolunteerForm ? "Volunteers" : "Participants"}:{" "}
-                {currentCount} / {limit}
+                Participants: {currentCount} / {limit}
               </p>
             )}
           </div>
           <div>
-            {isVolunteerForm ? (
-              <Link
-                href={`/dashboard/ngo/activities/${activityId}/forms/volunteers`}
-                className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
-              >
-                <MoveUpRight className="mr-2 h-4 w-4" />
-                View Volunteers
-              </Link>
-            ) : (
-              <Link
-                className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
-                href={`/dashboard/ngo/activities/${activityId}/forms/participants`}
-              >
-                {" "}
-                <MoveUpRight className="mr-2 h-4 w-4" />
-                View Participants
-              </Link>
-            )}
+            <Link
+              className="bg-[#1CAC78] hover:bg-green-500 text-white p-2 rounded-lg flex items-center"
+              href={`/dashboard/ngo/activities/${activityId}/forms/participants`}
+            >
+              <MoveUpRight className="mr-2 h-4 w-4" />
+              View Participants
+            </Link>
           </div>
         </CardContent>
       </Card>
@@ -255,80 +207,15 @@ const ActivityFormsPage = () => {
 
   return (
     <div className="p-4">
-      <h1 className="text-2xl font-bold mb-6">Activity Forms Dashboard</h1>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-8">
-        <FormCard
-          title="Volunteer Form"
-          formType="volunteer"
-          status={activityData?.volunteerFormStatus}
-        />
+      <h1 className="text-2xl font-bold mb-6">
+        Activity Registeration Forms Dashboard
+      </h1>
+      <div className="grid grid-cols-1 gap-4  mb-8">
         <FormCard
           title="Participation Form"
-          formType="participation"
           status={activityData?.participationFormStatus}
         />
       </div>
-
-      {/* <div className="space-y-4 mb-8">
-        <div>
-          <h2 className="text-lg font-semibold mb-2">
-            Volunteer Registration Form Link:
-          </h2>
-          <Link
-            href={`/opt-in-volunteer/${ngoId}/${activityId}`}
-            className="text-blue-600 hover:text-blue-800 underline"
-          >
-            Open Form
-          </Link>
-        </div>
-
-        <div>
-          <h2 className="text-lg font-semibold mb-2">
-            Participant Registration Form Link:
-          </h2>
-          <Link
-            href={`/opt-in-participant/${ngoId}/${activityId}`}
-            className="text-blue-600 hover:text-blue-800 underline"
-          >
-            Open Form
-          </Link>
-        </div>
-      </div> */}
-
-      <AlertDialog
-        open={showVolunteerDialog}
-        onOpenChange={setShowVolunteerDialog}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Set Volunteer Limit</AlertDialogTitle>
-            <AlertDialogDescription>
-              Enter the maximum number of volunteers you want to accept for this
-              activity.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="volunteerLimit">
-                Maximum number of volunteers
-              </Label>
-              <Input
-                id="volunteerLimit"
-                type="number"
-                value={volunteerLimit}
-                onChange={(e) => setVolunteerLimit(e.target.value)}
-                min="1"
-              />
-            </div>
-          </div>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => handleLimitSubmit("volunteer")}>
-              {isEditing ? "Update" : "Submit"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <AlertDialog
         open={showParticipantDialog}
@@ -358,9 +245,7 @@ const ActivityFormsPage = () => {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={() => handleLimitSubmit("participation")}
-            >
+            <AlertDialogAction onClick={() => handleLimitSubmit()}>
               {isEditing ? "Update" : "Submit"}
             </AlertDialogAction>
           </AlertDialogFooter>

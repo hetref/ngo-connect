@@ -41,11 +41,6 @@ const NavConfig = {
       href: "/dashboard/user/volunteer",
     },
     { name: "Donations", icon: IndianRupee, href: "/dashboard/user/donations" },
-    {
-      name: "Donate",
-      icon: ReceiptIndianRupee,
-      href: "/dashboard/user/donations/donate",
-    },
   ],
   bottomNavItems: [
     { name: "Profile", icon: User, href: "/dashboard/user/profile" },

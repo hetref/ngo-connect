@@ -6,9 +6,25 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { Eye, EyeOff } from "lucide-react";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import {
+  signInWithEmailAndPassword,
+  getMultiFactorResolver,
+  PhoneAuthProvider,
+  PhoneMultiFactorGenerator,
+  RecaptchaVerifier,
+} from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { auth } from "@/lib/firebase";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -17,6 +33,17 @@ export default function LoginPage() {
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+
+  // MFA states
+  const [showMFADialog, setShowMFADialog] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [verificationId, setVerificationId] = useState("");
+  const [mfaResolver, setMfaResolver] = useState(null);
+  const [mfaError, setMfaError] = useState("");
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [phoneHint, setPhoneHint] = useState("");
+  const [recaptchaVerifier, setRecaptchaVerifier] = useState(null);
 
   const loginHandler = async (e) => {
     e.preventDefault();
@@ -31,7 +58,36 @@ export default function LoginPage() {
       console.log("userCredential", userCredential);
       router.push("/dashboard");
     } catch (error) {
-      console.error("Error during login:", error.message);
+      console.error("Error during login:", error);
+
+      if (error.code === "auth/multi-factor-auth-required") {
+        // Handle MFA challenge
+        const resolver = getMultiFactorResolver(auth, error);
+        setMfaResolver(resolver);
+
+        // Get the phone hint (masked phone number)
+        if (resolver.hints && resolver.hints.length > 0) {
+          const phoneHint = resolver.hints[0].phoneNumber;
+          // Mask the phone number to show only last 4 digits
+          const maskedPhone = phoneHint.replace(/^(.*)(\d{4})$/, "••••••$2");
+          setPhoneHint(maskedPhone);
+        }
+
+        // Setup reCAPTCHA verifier for the MFA flow
+        const recaptchaVerifier = new RecaptchaVerifier(
+          auth,
+          "recaptcha-container",
+          {
+            size: "invisible",
+          }
+        );
+        setRecaptchaVerifier(recaptchaVerifier);
+
+        // Show MFA dialog
+        setShowMFADialog(true);
+        setLoading(false);
+        return;
+      }
 
       if (error.message.includes("user-not-found")) {
         setError("User not found. Please check your email and password.");
@@ -46,6 +102,87 @@ export default function LoginPage() {
       }
       setLoading(false);
     }
+  };
+
+  const sendVerificationCode = async () => {
+    setMfaError("");
+    setIsSendingCode(true);
+
+    try {
+      if (!mfaResolver || !recaptchaVerifier) {
+        throw new Error("MFA session not initialized properly");
+      }
+
+      // Get the first hint (we assume phone-based MFA)
+      const phoneInfoOptions = {
+        multiFactorHint: mfaResolver.hints[0],
+        session: mfaResolver.session,
+      };
+
+      // Send verification code
+      const phoneAuthProvider = new PhoneAuthProvider(auth);
+      const verificationId = await phoneAuthProvider.verifyPhoneNumber(
+        phoneInfoOptions,
+        recaptchaVerifier
+      );
+
+      setVerificationId(verificationId);
+      setMfaError("");
+    } catch (error) {
+      console.error("Error sending verification code:", error);
+      setMfaError(error.message || "Failed to send verification code");
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  const verifyMfaCode = async () => {
+    setMfaError("");
+    setIsVerifying(true);
+
+    try {
+      if (!verificationCode || verificationCode.length < 6) {
+        throw new Error("Please enter a valid verification code");
+      }
+
+      if (!mfaResolver || !verificationId) {
+        throw new Error("MFA session not initialized properly");
+      }
+
+      // Create credential with the verification code
+      const cred = PhoneAuthProvider.credential(
+        verificationId,
+        verificationCode
+      );
+      const multiFactorAssertion = PhoneMultiFactorGenerator.assertion(cred);
+
+      // Complete sign in
+      const userCredential =
+        await mfaResolver.resolveSignIn(multiFactorAssertion);
+      console.log("MFA sign-in successful:", userCredential);
+
+      // Close dialog and redirect
+      setShowMFADialog(false);
+      router.push("/dashboard");
+    } catch (error) {
+      console.error("Error verifying MFA code:", error);
+
+      if (error.code === "auth/invalid-verification-code") {
+        setMfaError("Invalid verification code. Please try again.");
+      } else {
+        setMfaError(error.message || "Failed to verify code");
+      }
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  // Clean up recaptcha when dialog closes
+  const handleDialogClose = () => {
+    if (recaptchaVerifier) {
+      recaptchaVerifier.clear();
+    }
+    setShowMFADialog(false);
   };
 
   return (
@@ -133,6 +270,71 @@ export default function LoginPage() {
           </Link>
         </div>
       </form>
+
+      {/* Hidden recaptcha container */}
+      <div id="recaptcha-container"></div>
+
+      {/* MFA Dialog */}
+      <Dialog open={showMFADialog} onOpenChange={handleDialogClose}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Two-Factor Authentication</DialogTitle>
+            <DialogDescription>
+              {!verificationId
+                ? `Please verify your identity by entering the code sent to your phone ${phoneHint}.`
+                : "Enter the verification code sent to your phone."}
+            </DialogDescription>
+          </DialogHeader>
+
+          {mfaError && (
+            <Alert variant="destructive" className="mt-2">
+              <AlertDescription>{mfaError}</AlertDescription>
+            </Alert>
+          )}
+
+          <div className="grid gap-4 py-4">
+            {!verificationId ? (
+              <Button
+                onClick={sendVerificationCode}
+                disabled={isSendingCode}
+                className="bg-[#1CAC78] hover:bg-[#18956A]"
+              >
+                {isSendingCode ? "Sending..." : "Send Verification Code"}
+              </Button>
+            ) : (
+              <>
+                <div className="grid gap-2">
+                  <Label htmlFor="verification-code">Verification Code</Label>
+                  <Input
+                    id="verification-code"
+                    type="text"
+                    placeholder="123456"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    maxLength={6}
+                  />
+                </div>
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => setVerificationId("")}
+                    disabled={isVerifying}
+                  >
+                    Back
+                  </Button>
+                  <Button
+                    onClick={verifyMfaCode}
+                    disabled={isVerifying || verificationCode.length < 6}
+                    className="bg-[#1CAC78] hover:bg-[#18956A]"
+                  >
+                    {isVerifying ? "Verifying..." : "Verify"}
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -188,7 +188,7 @@ const NGOSettingsPage = () => {
           <TabsTrigger value="verification">Verification</TabsTrigger>
           {/* <TabsTrigger value="team">Team</TabsTrigger>
           <TabsTrigger value="events">Events</TabsTrigger> */}
-          <TabsTrigger value="donations">Donations</TabsTrigger>
+          <TabsTrigger value="bank-info">Bank Info</TabsTrigger>
           {/* <TabsTrigger value="notifications">Notifications</TabsTrigger> */}
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
@@ -290,7 +290,7 @@ const NGOSettingsPage = () => {
           </Card>
         </TabsContent> */}
 
-        <TabsContent value="donations">
+        <TabsContent value="bank-info">
           <DonationInformation
             ngoId={userId}
             approvalStatus={approvalStatus}

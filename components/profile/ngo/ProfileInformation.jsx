@@ -14,7 +14,7 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { db, storage } from "@/lib/firebase";
 import { doc, getDoc, setDoc, onSnapshot } from "firebase/firestore";
 import {
@@ -42,7 +42,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     phone: "",
     type: "",
     customType: "",
-    categories: [], // Changed from single category to categories array
+    categories: [],
     email: "",
     website: "",
     pan: "",
@@ -55,46 +55,147 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
     logoFile: null,
     mission: "",
     vision: "",
+    state: "",
+    district: "",
   });
   const [errors, setErrors] = useState({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showCustomType, setShowCustomType] = useState(false);
 
-  // NGO Types and Categories mapping
-  const ngoTypesAndCategories = {
-    "Child Welfare Organizations": [
-      "Foster Care Programs",
-      "Early Childhood Development (ECD)",
-      "Holistic Child Rehabilitation",
-      "Vulnerable Child Protection Initiatives",
-    ],
-    "Environmental Conservation Organizations": [
-      "Sustainable Development Programs",
-      "Climate Resilience & Adaptation Strategies",
-      "Biodiversity & Ecosystem Conservation",
-      "Renewable Energy Advocacy",
-    ],
-    "Public Health & Medical Relief Organizations": [
-      "Epidemic & Pandemic Preparedness",
-      "Maternal & Child Health (MCH) Programs",
-      "Disease Prevention & Control Campaigns",
-      "Mental Health & Psychosocial Support (MHPSS)",
-    ],
-    "Educational Empowerment Organizations": [
-      "Literacy & Numeracy Enhancement Programs",
-      "Inclusive & Equitable Education Initiatives",
-      "Digital & Technological Skill-building",
-      "Vocational & Workforce Readiness Programs",
-    ],
-    Other: [],
-  };
+  // Memoize NGO types and categories to prevent recreation on each render
+  const ngoTypesAndCategories = useMemo(
+    () => ({
+      "Child Welfare Organizations": [
+        "Foster Care Programs",
+        "Early Childhood Development (ECD)",
+        "Holistic Child Rehabilitation",
+        "Vulnerable Child Protection Initiatives",
+      ],
+      "Environmental Conservation Organizations": [
+        "Sustainable Development Programs",
+        "Climate Resilience & Adaptation Strategies",
+        "Biodiversity & Ecosystem Conservation",
+        "Renewable Energy Advocacy",
+      ],
+      "Public Health & Medical Relief Organizations": [
+        "Epidemic & Pandemic Preparedness",
+        "Maternal & Child Health (MCH) Programs",
+        "Disease Prevention & Control Campaigns",
+        "Mental Health & Psychosocial Support (MHPSS)",
+      ],
+      "Educational Empowerment Organizations": [
+        "Literacy & Numeracy Enhancement Programs",
+        "Inclusive & Equitable Education Initiatives",
+        "Digital & Technological Skill-building",
+        "Vocational & Workforce Readiness Programs",
+      ],
+      Other: [],
+    }),
+    []
+  );
 
-  const shouldDisableInputs =
-    (verificationStatus === "verified" && approvalStatus === "verified") ||
-    (verificationStatus === "pending" && approvalStatus === "pending");
+  // Memoize computed values
+  const shouldDisableInputs = useMemo(
+    () =>
+      (verificationStatus === "verified" && approvalStatus === "verified") ||
+      (verificationStatus === "pending" && approvalStatus === "pending") ||
+      isSubmitting,
+    [verificationStatus, approvalStatus, isSubmitting]
+  );
 
   const pendingTitle =
     "You cannot update the profile while the verification is in progress";
 
+  // Use useCallback for event handlers to prevent recreation on each render
+  const handleInputChange = useCallback((field, value) => {
+    setNgoProfile((prevProfile) => ({
+      ...prevProfile,
+      [field]: value,
+    }));
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      [field]: undefined,
+    }));
+  }, []);
+
+  const handleTypeChange = useCallback(
+    (value) => {
+      setShowCustomType(value === "Other");
+
+      setNgoProfile((prevProfile) => {
+        const updatedProfile = {
+          ...prevProfile,
+          type: value,
+          customType: value === "Other" ? prevProfile.customType : "",
+        };
+
+        if (value !== "Other") {
+          updatedProfile.categories = [...ngoTypesAndCategories[value]];
+          updatedProfile.customCategory = "";
+        } else {
+          updatedProfile.categories = prevProfile.categories;
+        }
+
+        return updatedProfile;
+      });
+
+      setErrors((prevErrors) => ({
+        ...prevErrors,
+        type: undefined,
+      }));
+    },
+    [ngoTypesAndCategories]
+  );
+
+  const handleCustomCategoryChange = useCallback((value) => {
+    setNgoProfile((prevProfile) => ({
+      ...prevProfile,
+      customCategory: value,
+      categories: value ? [value] : [],
+    }));
+
+    setErrors((prevErrors) => ({
+      ...prevErrors,
+      customCategory: undefined,
+    }));
+  }, []);
+
+  const handleLogoUpload = useCallback((e) => {
+    const file = e.target.files[0];
+    if (file) {
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        setErrors((prev) => ({
+          ...prev,
+          logoFile: "Logo file must be less than 2MB",
+        }));
+        return;
+      }
+
+      // Validate file type
+      if (!["image/jpeg", "image/png", "image/jpg"].includes(file.type)) {
+        setErrors((prev) => ({
+          ...prev,
+          logoFile: "Only JPG and PNG formats are allowed",
+        }));
+        return;
+      }
+
+      const fileURL = URL.createObjectURL(file);
+      setNgoProfile((prev) => ({
+        ...prev,
+        logoUrl: fileURL,
+        logoFile: file,
+      }));
+
+      setErrors((prev) => ({
+        ...prev,
+        logoFile: undefined,
+      }));
+    }
+  }, []);
+
+  // Fetch NGO profile data
   useEffect(() => {
     const docRef = doc(db, "ngo", userId);
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
@@ -103,22 +204,18 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
         setNgoProfile((prevProfile) => ({
           ...prevProfile,
           ...data,
-          // Ensure categories is an array
           categories: data.categories || (data.category ? [data.category] : []),
         }));
 
-        // Check if type is "Other" to show custom type field
-        if (data.type === "Other") {
-          setShowCustomType(true);
-        }
+        setShowCustomType(data.type === "Other");
       }
     });
 
-    // Cleanup the listener on component unmount
     return () => unsubscribe();
   }, [userId]);
 
-  const validateInputs = () => {
+  // Improved validation with more specific error messages
+  const validateInputs = useCallback(() => {
     const newErrors = {};
     if (!ngoProfile.ngoName?.trim()) newErrors.ngoName = "NGO Name is required";
     if (!ngoProfile.name?.trim()) newErrors.name = "Name is required";
@@ -126,122 +223,85 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
       newErrors.registrationNumber = "Registration number is required";
     if (!ngoProfile.description?.trim())
       newErrors.description = "Description is required";
-    if (!ngoProfile.phone?.trim()) newErrors.phone = "Phone number is required";
-    if (!ngoProfile.email?.trim()) newErrors.email = "Email is required";
-    if (ngoProfile.email && !ngoProfile.email.includes("@"))
-      newErrors.email = "Invalid email address";
-    if (ngoProfile.phone && !ngoProfile.phone.match(/^\+?\d{10,}$/))
-      newErrors.phone = "Invalid phone number";
-    if (ngoProfile.pan && !ngoProfile.pan.match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/))
-      newErrors.pan = "Invalid PAN number";
+    if (!ngoProfile.phone?.trim()) {
+      newErrors.phone = "Phone number is required";
+    } else if (!ngoProfile.phone.match(/^\+?\d{10,}$/)) {
+      newErrors.phone =
+        "Please enter a valid phone number with at least 10 digits";
+    }
+
+    if (!ngoProfile.email?.trim()) {
+      newErrors.email = "Email is required";
+    } else if (!ngoProfile.email.includes("@")) {
+      newErrors.email = "Please enter a valid email address";
+    }
+
+    if (ngoProfile.pan && !ngoProfile.pan.match(/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/)) {
+      newErrors.pan = "PAN must be in format ABCDE1234F";
+    }
+
     if (!ngoProfile.mission?.trim()) newErrors.mission = "Mission is required";
     if (!ngoProfile.vision?.trim()) newErrors.vision = "Vision is required";
     if (!ngoProfile.state?.trim()) newErrors.state = "State is required";
     if (!ngoProfile.district?.trim())
       newErrors.district = "District is required";
     if (!ngoProfile.type?.trim()) newErrors.type = "NGO Type is required";
-    if (ngoProfile.type === "Other" && !ngoProfile.customType?.trim())
-      newErrors.customType = "Custom NGO Type is required";
-    if (ngoProfile.type === "Other" && !ngoProfile.customCategory?.trim())
-      newErrors.customCategory = "Custom NGO Category is required";
 
-    // Check categories only for "Other" type
-    if (
-      ngoProfile.type === "Other" &&
-      (!ngoProfile.categories || ngoProfile.categories.length === 0)
-    ) {
-      newErrors.categories = "At least one category is required";
+    if (ngoProfile.type === "Other") {
+      if (!ngoProfile.customType?.trim()) {
+        newErrors.customType = "Custom NGO Type is required";
+      }
+      if (!ngoProfile.customCategory?.trim()) {
+        newErrors.customCategory = "Custom NGO Category is required";
+      }
+      if (!ngoProfile.categories || ngoProfile.categories.length === 0) {
+        newErrors.categories = "At least one category is required";
+      }
     }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
-  };
+  }, [ngoProfile]);
 
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      const fileURL = URL.createObjectURL(file);
-      setNgoProfile({ ...ngoProfile, logoUrl: fileURL, logoFile: file });
-    }
-  };
+  // Optimized save changes function with better error handling
+  const handleSaveChanges = useCallback(async () => {
+    const toasting = toast.loading("Saving changes...");
+    setIsSubmitting(true);
 
-  const handleInputChange = (field, value) => {
-    setNgoProfile((prevProfile) => ({
-      ...prevProfile,
-      [field]: value,
-    }));
-    if (errors[field]) {
-      setErrors({ ...errors, [field]: undefined });
-    }
-  };
-
-  const handleTypeChange = (value) => {
-    setShowCustomType(value === "Other");
-
-    // When type changes, automatically assign all categories for that type
-    setNgoProfile((prevProfile) => {
-      const updatedProfile = {
-        ...prevProfile,
-        type: value,
-        customType: value === "Other" ? prevProfile.customType : "",
-      };
-
-      // If non-Other type, assign all categories from that type
-      if (value !== "Other") {
-        updatedProfile.categories = [...ngoTypesAndCategories[value]];
-        updatedProfile.customCategory = "";
-      } else {
-        // For "Other" type, keep existing custom categories or empty array
-        updatedProfile.categories = prevProfile.categories;
+    try {
+      if (!validateInputs()) {
+        toast.error("Please fill in all required fields", { id: toasting });
+        setIsSubmitting(false);
+        return;
       }
 
-      return updatedProfile;
-    });
-
-    if (errors.type) {
-      setErrors({ ...errors, type: undefined });
-    }
-  };
-
-  const handleCustomCategoryChange = (value) => {
-    setNgoProfile((prevProfile) => ({
-      ...prevProfile,
-      customCategory: value,
-      categories: value ? [value] : [],
-    }));
-
-    if (errors.customCategory) {
-      setErrors({ ...errors, customCategory: undefined });
-    }
-  };
-
-  const handleSaveChanges = async () => {
-    const toasting = toast.loading("Saving changes...");
-    if (validateInputs()) {
       let logoFileUrl = ngoProfile.logoUrl;
-
-      // Prepare the profile data to save
       const profileToSave = { ...ngoProfile };
 
-      // If type is "Other", use the customType as the actual type in the database
       if (profileToSave.type === "Other") {
-        profileToSave.displayType = profileToSave.customType; // Store custom type in a new field for display
+        profileToSave.displayType = profileToSave.customType;
       } else {
-        profileToSave.displayType = profileToSave.type; // Standard type
+        profileToSave.displayType = profileToSave.type;
       }
 
+      // Handle logo upload if there's a new file
       if (ngoProfile.logoFile) {
         const logoRef = ref(storage, `ngo/${userId}/logo`);
+
+        // Delete existing logo if it exists
         if (ngoProfile.logoUrl && ngoProfile.logoUrl.startsWith("https")) {
-          await deleteObject(ref(storage, ngoProfile.logoUrl));
-          console.log("DELETED LOGO");
+          try {
+            await deleteObject(ref(storage, ngoProfile.logoUrl));
+          } catch (error) {
+            console.error("Error deleting previous logo:", error);
+          }
         }
+
         const uploadTask = uploadBytesResumable(logoRef, ngoProfile.logoFile);
 
         uploadTask.on(
           "state_changed",
           (snapshot) => {
-            // Calculate the progress percentage
             const progress =
               (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
             toast.loading(`Uploading logo: ${Math.round(progress)}%`, {
@@ -249,82 +309,103 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             });
           },
           (error) => {
-            // Handle unsuccessful uploads
-            toast.error("Error uploading logo", { id: toasting });
-            console.log("ERROR", error);
+            toast.error(`Error uploading logo: ${error.message}`, {
+              id: toasting,
+            });
+            setIsSubmitting(false);
           },
           async () => {
-            // Handle successful uploads on complete
-            const logoUrl = await getDownloadURL(uploadTask.snapshot.ref);
-            logoFileUrl = logoUrl;
-            setNgoProfile((prevProfile) => ({
-              ...prevProfile,
-              logoUrl,
-              logoFile: null,
-            }));
-            console.log("LOGOFILEURL", logoFileUrl);
+            try {
+              logoFileUrl = await getDownloadURL(uploadTask.snapshot.ref);
 
-            // Proceed with saving the profile
-            const filteredProfile = Object.fromEntries(
-              Object.entries(profileToSave).filter(
-                ([key, value]) => value !== null && value !== ""
-              )
-            );
+              // Clean up the profile data before saving
+              const filteredProfile = prepareProfileForSave(
+                profileToSave,
+                logoFileUrl
+              );
 
-            // Explicitly set logoFile to null
-            filteredProfile.logoFile = null;
-
-            await setDoc(
-              doc(db, "ngo", userId),
-              {
-                ...filteredProfile,
-                logoUrl: logoFileUrl,
-              },
-              { merge: true }
-            )
-              .then(() => {
-                toast.success("Profile updated successfully", { id: toasting });
-              })
-              .catch((error) => {
-                toast.error("Error updating profile", { id: toasting });
+              await saveProfileToFirestore(filteredProfile, toasting);
+            } catch (error) {
+              toast.error(`Error finalizing upload: ${error.message}`, {
+                id: toasting,
               });
+              setIsSubmitting(false);
+            }
           }
         );
       } else {
-        // If no logo file, proceed with saving the profile
-        const filteredProfile = Object.fromEntries(
-          Object.entries(profileToSave).filter(
-            ([key, value]) => value !== null && value !== ""
-          )
+        // No new logo file, just save the profile
+        const filteredProfile = prepareProfileForSave(
+          profileToSave,
+          logoFileUrl
         );
-
-        // Explicitly set logoFile to null
-        filteredProfile.logoFile = null;
-
-        await setDoc(
-          doc(db, "ngo", userId),
-          {
-            ...filteredProfile,
-            logoUrl: logoFileUrl,
-          },
-          { merge: true }
-        )
-          .then(() => {
-            toast.success("Profile updated successfully", { id: toasting });
-          })
-          .catch((error) => {
-            toast.error("Error updating profile", { id: toasting });
-          });
+        await saveProfileToFirestore(filteredProfile, toasting);
       }
-    } else {
-      toast.error("Please fill in all required fields", { id: toasting });
+    } catch (error) {
+      toast.error(`An unexpected error occurred: ${error.message}`, {
+        id: toasting,
+      });
+      setIsSubmitting(false);
     }
-  };
+  }, [ngoProfile, userId, validateInputs]);
+
+  // Helper function to prepare profile data for saving
+  const prepareProfileForSave = useCallback((profileData, logoUrl) => {
+    // Remove empty values and null values
+    const filteredProfile = Object.fromEntries(
+      Object.entries(profileData).filter(
+        ([key, value]) => value !== null && value !== "" && key !== "logoFile" // Explicitly exclude logoFile
+      )
+    );
+
+    return {
+      ...filteredProfile,
+      logoUrl,
+      logoFile: null, // Explicitly set logoFile to null
+      updatedAt: new Date(), // Add timestamp for when profile was last updated
+    };
+  }, []);
+
+  // Helper function to save profile to Firestore
+  const saveProfileToFirestore = useCallback(
+    async (profileData, toastId) => {
+      try {
+        await setDoc(doc(db, "ngo", userId), profileData, { merge: true });
+
+        // Update local state to reflect saved changes
+        setNgoProfile((prev) => ({
+          ...prev,
+          ...profileData,
+          logoFile: null,
+        }));
+
+        toast.success("Profile updated successfully", { id: toastId });
+      } catch (error) {
+        toast.error(`Error updating profile: ${error.message}`, {
+          id: toastId,
+        });
+      } finally {
+        setIsSubmitting(false);
+      }
+    },
+    [userId]
+  );
+
+  // Add this RequiredLabel component
+  const RequiredLabel = ({ htmlFor, children }) => (
+    <Label htmlFor={htmlFor} className="flex items-center gap-1">
+      <span className="text-red-500">*</span>
+      {children}
+    </Label>
+  );
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>NGO Profile Information</CardTitle>
+        <div className="text-sm text-gray-500 mt-2">
+          <span className="text-red-500">*</span> Required fields
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex items-center justify-center space-x-4">
@@ -345,7 +426,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
                 type="file"
                 id="upload-ngo-logo"
                 onChange={handleLogoUpload}
-                accept="image/*"
+                accept="image/jpeg,image/png,image/jpg"
                 className="border-gray-300 hidden"
                 disabled={shouldDisableInputs}
                 title={shouldDisableInputs ? pendingTitle : ""}
@@ -366,11 +447,14 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             <p className="text-sm text-muted-foreground mt-2">
               600 x 600px PNG/JPG
             </p>
+            {errors.logoFile && (
+              <p className="text-red-500 text-sm mt-1">{errors.logoFile}</p>
+            )}
           </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="ngo-name">NGO Name</Label>
+            <RequiredLabel htmlFor="ngo-name">NGO Name</RequiredLabel>
             <Input
               id="ngo-name"
               value={ngoProfile?.ngoName || ""}
@@ -383,7 +467,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.ngoName && <p className="text-red-500">{errors.ngoName}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="name">Your Name</Label>
+            <RequiredLabel htmlFor="name">Your Name</RequiredLabel>
             <Input
               id="name"
               value={ngoProfile?.name || ""}
@@ -396,7 +480,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.name && <p className="text-red-500">{errors.name}</p>}
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="ngo-type">NGO Type</Label>
+            <RequiredLabel htmlFor="ngo-type">NGO Type</RequiredLabel>
             <Select
               id="ngo-type"
               value={ngoProfile?.type || ""}
@@ -431,7 +515,9 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
           {/* Custom Type Input - only shown when "Other" is selected */}
           {showCustomType && (
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="custom-type">Specify NGO Type</Label>
+              <RequiredLabel htmlFor="custom-type">
+                Specify NGO Type
+              </RequiredLabel>
               <Input
                 id="custom-type"
                 value={ngoProfile?.customType || ""}
@@ -453,7 +539,9 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
           {/* Custom Category Input - only shown when "Other" is selected for type */}
           {showCustomType && (
             <div className="space-y-2 md:col-span-2">
-              <Label htmlFor="custom-category">Specify NGO Category</Label>
+              <RequiredLabel htmlFor="custom-category">
+                Specify NGO Category
+              </RequiredLabel>
               <Input
                 id="custom-category"
                 value={ngoProfile?.customCategory || ""}
@@ -490,9 +578,9 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             )}
 
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="registration-number">
+            <RequiredLabel htmlFor="registration-number">
               Darpan Registration Number
-            </Label>
+            </RequiredLabel>
             <Input
               id="registration-number"
               value={ngoProfile?.registrationNumber || ""}
@@ -509,7 +597,9 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             )}
           </div>
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="description">Description/About</Label>
+            <RequiredLabel htmlFor="description">
+              Description/About
+            </RequiredLabel>
             <Textarea
               id="description"
               value={ngoProfile?.description || ""}
@@ -525,7 +615,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="mission">Mission</Label>
+            <RequiredLabel htmlFor="mission">Mission</RequiredLabel>
             <Textarea
               id="mission"
               value={ngoProfile?.mission || ""}
@@ -539,7 +629,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.mission && <p className="text-red-500">{errors.mission}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="vision">Vision</Label>
+            <RequiredLabel htmlFor="vision">Vision</RequiredLabel>
             <Textarea
               id="vision"
               value={ngoProfile?.vision || ""}
@@ -553,7 +643,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.vision && <p className="text-red-500">{errors.vision}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="phone">Phone</Label>
+            <RequiredLabel htmlFor="phone">Phone</RequiredLabel>
             <Input
               id="phone"
               value={ngoProfile?.phone || ""}
@@ -566,7 +656,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.phone && <p className="text-red-500">{errors.phone}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <RequiredLabel htmlFor="email">Email</RequiredLabel>
             <Input
               id="email"
               type="email"
@@ -616,7 +706,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="state">State</Label>
+            <RequiredLabel htmlFor="state">State</RequiredLabel>
             <Input
               id="state"
               value={ngoProfile?.state || ""}
@@ -629,7 +719,7 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
             {errors.state && <p className="text-red-500">{errors.state}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="district">District</Label>
+            <RequiredLabel htmlFor="district">District</RequiredLabel>
             <Input
               id="district"
               value={ngoProfile?.district || ""}
@@ -695,11 +785,11 @@ const ProfileInformation = ({ userId, approvalStatus, verificationStatus }) => {
           disabled={shouldDisableInputs}
           title={shouldDisableInputs ? pendingTitle : ""}
         >
-          Save Profile Changes
+          {isSubmitting ? "Saving..." : "Save Profile Changes"}
         </Button>
       </CardContent>
     </Card>
   );
 };
 
-export default ProfileInformation;
+export default React.memo(ProfileInformation);

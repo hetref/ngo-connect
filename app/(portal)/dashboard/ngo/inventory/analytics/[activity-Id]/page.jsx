@@ -9,8 +9,8 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts"
 import Link from "next/link"
-import { collection, getDocs, doc, getDoc, updateDoc, arrayUnion, setDoc, deleteDoc, arrayRemove } from "firebase/firestore"
-import { db } from "@/lib/firebase"
+import { collection, getDocs, doc, getDoc, updateDoc, arrayUnion, setDoc, deleteDoc, arrayRemove, query, where, increment } from "firebase/firestore"
+import { db, auth } from "@/lib/firebase"
 import { use } from 'react'
 import { Plus, Minus } from 'lucide-react'
 import {
@@ -35,15 +35,42 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { useAuth } from "@/context/AuthContext"
+import dynamic from "next/dynamic"
+import { jsPDF } from "jspdf";
+import "jspdf-autotable";
+
+// Create a completely client-side PDF download component
+const PDFDownloadButton = dynamic(
+  () => import("@/components/reports/inventory/pdf-download-button").then(mod => mod.default),
+  { 
+    ssr: false,
+    loading: () => (
+      <Button className="bg-[#1CAC78] hover:bg-[#158f63]" disabled>
+        <FileText className="mr-2 h-4 w-4" />
+        Loading PDF Generator...
+      </Button>
+    )
+  }
+);
+
+// Dynamic import for the PDF component
+const InventoryReportPDF = dynamic(
+  () => import("@/components/reports/inventory/inventory-report-pdf"),
+  { ssr: false }
+);
 
 export default function NGOInventoryAnalyticsPage({ params }) {
+  const { user: authUser } = useAuth()
   const unwrappedParams = use(params)
   const [loading, setLoading] = useState(true)
   const [eventDetails, setEventDetails] = useState(null)
   const [inventoryItems, setInventoryItems] = useState([])
+  const [donations, setDonations] = useState([])
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [availableProducts, setAvailableProducts] = useState([])
+  const [resItems, setResItems] = useState([])
   const [selectedProduct, setSelectedProduct] = useState(null)
   const [assignedQuantity, setAssignedQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
@@ -83,31 +110,72 @@ export default function NGOInventoryAnalyticsPage({ params }) {
           return;
         }
 
-        const inventoryPromises = activityData.inventory.map(async (item) => {
+        // Create a Set to track processed product IDs and avoid duplicates
+        const processedIds = new Set();
+        const inventoryPromises = [];
+
+        // Process each inventory item
+        activityData.inventory.forEach(item => {
           const productId = typeof item === 'string' ? item : item.productid;
           
           if (!productId) {
             console.log("No product ID for item:", item);
-            return null;
+            return;
           }
 
-          try {
-            const inventoryDocRef = doc(db, "activities", unwrappedParams['activity-Id'], "inventory", productId);
-            const inventoryDoc = await getDoc(inventoryDocRef);
+          // Skip if this ID has already been processed
+          if (processedIds.has(productId)) {
+            console.log(`Skipping duplicate product ID: ${productId}`);
+            return;
+          }
+          
+          // Mark this ID as processed
+          processedIds.add(productId);
 
-            if (inventoryDoc.exists()) {
-              return { ...item, ...inventoryDoc.data(), id: productId };
-            } else {
-              console.log(`No details found for product ${productId}`);
-              return item;
+          // Add the promise to fetch the item details
+          inventoryPromises.push(new Promise(async (resolve) => {
+            try {
+              const inventoryDocRef = doc(db, "activities", unwrappedParams['activity-Id'], "inventory", productId);
+              const inventoryDoc = await getDoc(inventoryDocRef);
+
+              if (inventoryDoc.exists()) {
+                const inventoryData = inventoryDoc.data();
+                // Standardize fields regardless of whether it's a product or resource
+                let standardizedItem = {
+                  ...item,
+                  ...inventoryData,
+                  id: productId,
+                  productid: productId,
+                  category: inventoryData.category || "Uncategorized",
+                  isResource: inventoryData.type === 'res',
+                  itemType: inventoryData.type === 'res' ? 'Donation' : 'Product'
+                };
+                
+                // For resources, properly set resource and resourceName fields
+                if (inventoryData.type === 'res') {
+                  standardizedItem.resource = inventoryData.resource || '';
+                  standardizedItem.resourceName = inventoryData.resourceName || '';
+                  standardizedItem.productname = inventoryData.resourceName || "Unnamed Donation";
+                  standardizedItem.displayName = `${standardizedItem.resourceName || 'Unnamed Item'} (${standardizedItem.resource || 'General'})`;
+                } else {
+                  standardizedItem.productname = inventoryData.productname || "Unnamed Product";
+                  standardizedItem.displayName = standardizedItem.productname;
+                }
+                
+                resolve(standardizedItem);
+              } else {
+                console.log(`No details found for product ${productId}`);
+                resolve(null);
+              }
+            } catch (error) {
+              console.error(`Error fetching inventory item ${productId}:`, error);
+              resolve(null);
             }
-          } catch (error) {
-            console.error(`Error fetching inventory item ${productId}:`, error);
-            return item;
-          }
+          }));
         });
 
         const detailedInventory = (await Promise.all(inventoryPromises)).filter(item => item !== null);
+        console.log("Loaded inventory items:", detailedInventory.length);
         setInventoryItems(detailedInventory);
       } catch (error) {
         console.error("Error fetching data:", error);
@@ -120,21 +188,79 @@ export default function NGOInventoryAnalyticsPage({ params }) {
   }, [unwrappedParams]);
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchProductsAndRes = async () => {
       try {
-        const productsCollection = collection(db, "products")
-        const snapshot = await getDocs(productsCollection)
-        const products = snapshot.docs.map(doc => ({
+        // Fetch products
+        const productsCollection = collection(db, "products");
+        const productsSnapshot = await getDocs(productsCollection);
+        const products = productsSnapshot.docs.map(doc => ({
           id: doc.id,
+          type: 'product',
+          productName: doc.data().productName || doc.data().name,
+          category: doc.data().category || 'Uncategorized',
+          quantity: doc.data().quantity || 0,
           ...doc.data()
-        }))
-        setAvailableProducts(products)
-      } catch (error) {
-        console.error("Error fetching products:", error)
-      }
-    }
+        }));
 
-    if (isDialogOpen) fetchProducts()
+        // Fetch res collection
+        const resCollection = collection(db, "res");
+        const resSnapshot = await getDocs(resCollection);
+        const resItems = resSnapshot.docs.map(doc => {
+          const data = doc.data();
+          // Calculate actual available quantity for donations
+          const quantity = data.remaining || 0;
+          return {
+            id: doc.id,
+            type: 'res',
+            productName: data.resource || data.productname,
+            category: data.category || 'Uncategorized',
+            quantity: quantity, // Use remaining as the quantity
+            remaining: quantity,
+            ...data
+          };
+        });
+
+        // Combine similar items
+        const combinedItems = new Map();
+        
+        // Process products first
+        products.forEach(product => {
+          const key = product.productName.toLowerCase();
+          if (!combinedItems.has(key)) {
+            combinedItems.set(key, {
+              ...product,
+              sources: [{ type: 'product', id: product.id, quantity: product.quantity }]
+            });
+          } else {
+            const existing = combinedItems.get(key);
+            existing.quantity += product.quantity;
+            existing.sources.push({ type: 'product', id: product.id, quantity: product.quantity });
+          }
+        });
+
+        // Then process res items and combine with products if needed
+        resItems.forEach(item => {
+          const key = item.productName.toLowerCase();
+          if (!combinedItems.has(key)) {
+            combinedItems.set(key, {
+              ...item,
+              sources: [{ type: 'res', id: item.id, quantity: item.remaining }]
+            });
+          } else {
+            const existing = combinedItems.get(key);
+            existing.quantity += item.remaining;
+            existing.sources.push({ type: 'res', id: item.id, quantity: item.remaining });
+          }
+        });
+
+        setAvailableProducts(Array.from(combinedItems.values()).filter(item => !item.sources.every(s => s.type === 'res')));
+        setResItems(Array.from(combinedItems.values()).filter(item => !item.sources.every(s => s.type === 'product')));
+      } catch (error) {
+        console.error("Error fetching products and res:", error);
+      }
+    };
+
+    if (isDialogOpen) fetchProductsAndRes();
   }, [isDialogOpen]);
 
   useEffect(() => {
@@ -143,10 +269,32 @@ export default function NGOInventoryAnalyticsPage({ params }) {
       
       const fetchProductDetails = async () => {
         try {
-          const productDocRef = doc(db, "products", productToUpdate.productid);
-          const productDoc = await getDoc(productDocRef);
-          if (productDoc.exists()) {
-            setCurrentProductDetails(productDoc.data());
+          // Need to check product type and fetch from appropriate collection
+          if (productToUpdate.type === 'res') {
+            // For donation items, fetch from res collection
+            const resDocRef = doc(db, "res", productToUpdate.productid);
+            const resDoc = await getDoc(resDocRef);
+            if (resDoc.exists()) {
+              // Set remaining as the quantity for donation items
+              const resData = resDoc.data();
+              setCurrentProductDetails({
+                ...resData,
+                quantity: resData.remaining || 0, // Use remaining as quantity
+                itemType: 'Donation',
+                isResource: true
+              });
+            }
+          } else {
+            // For regular products, fetch from products collection
+            const productDocRef = doc(db, "products", productToUpdate.productid);
+            const productDoc = await getDoc(productDocRef);
+            if (productDoc.exists()) {
+              setCurrentProductDetails({
+                ...productDoc.data(),
+                itemType: 'Product',
+                isResource: false
+              });
+            }
           }
         } catch (error) {
           console.error("Error fetching product details:", error);
@@ -231,11 +379,10 @@ export default function NGOInventoryAnalyticsPage({ params }) {
     }
   };
 
-// Update the handleAddProduct function to store additional event information
 const handleAddProduct = async () => {
   if (!selectedProduct || assignedQuantity < 1) return;
 
-  const maxAvailable = selectedProduct?.quantity || 0;
+  const maxAvailable = selectedProduct.quantity || 0;
   if (assignedQuantity > maxAvailable) {
     alert(`Cannot assign more than available quantity (${maxAvailable})`);
     return;
@@ -244,136 +391,191 @@ const handleAddProduct = async () => {
   setIsAdding(true);
   try {
     const activityId = unwrappedParams['activity-Id'];
-    
-    // 1. Update the activity document to include this product in inventory
-    const activityDocRef = doc(db, "activities", activityId);
-    
-    await updateDoc(activityDocRef, {
-      inventory: arrayUnion({ 
-        productid: selectedProduct.id,
-        assignedQuantity: assignedQuantity 
-      })
+    const userDocRef = doc(db, "users", authUser.uid);
+    const userDoc = await getDoc(userDocRef);
+    const ngoId = userDoc.data()?.ngoId || authUser.uid;
+
+    // Improved check for existing items with more robust matching
+    const existingItemIndex = inventoryItems.findIndex(item => {
+      // Match by productid (most reliable)
+      if (item.productid === selectedProduct.id) {
+        return true;
+      }
+      
+      // For resources, also match by resource name if available
+      if (selectedProduct.type === 'res' && item.type === 'res') {
+        // Check resource field match if both have it
+        if (item.resource && selectedProduct.resource && 
+            item.resource.toLowerCase() === selectedProduct.resource.toLowerCase()) {
+          return true;
+        }
+        
+        // Check resourceName field match if both have it
+        if (item.resourceName && selectedProduct.resourceName && 
+            item.resourceName.toLowerCase() === selectedProduct.resourceName.toLowerCase()) {
+          return true;
+        }
+      }
+      
+      // For products, match by product name if needed
+      if (item.productname && selectedProduct.productName && 
+          item.productname.toLowerCase() === selectedProduct.productName.toLowerCase()) {
+        return true;
+      }
+      
+      return false;
     });
 
-    // 2. Add product details to the activity's inventory subcollection
-    const inventoryDocRef = doc(
-      db,
-      "activities",
-      activityId,
-      "inventory",
-      selectedProduct.id
-    );
-
-    // Use productName if it exists, otherwise fall back to name
-    const productName = selectedProduct.productName || selectedProduct.name;
-    const category = selectedProduct.category || "Uncategorized";
-
-    await setDoc(inventoryDocRef, {
-      productname: productName,
-      category: category,
-      assigned: assignedQuantity,
-      used: 0,
-      remaining: assignedQuantity,
-      expiry: ""
-    });
-
-    // 3. Update the product collection to reduce available quantity
-    // and add this event to usedinevents array with additional information
-    const newProductQuantity = (selectedProduct.quantity || 0) - assignedQuantity;
-    const productDocRef = doc(db, "products", selectedProduct.id);
+    // Distribute quantity across sources
+    let remainingToAssign = assignedQuantity;
+    const sources = selectedProduct.sources || [];
     
-    // Get current product data first to check if usedinevents already exists
-    const productDoc = await getDoc(productDocRef);
-    if (productDoc.exists()) {
-      const productData = productDoc.data();
-      // Check if event is already in usedinevents array
-      const usedInEvents = productData.usedinevents || [];
-      
-      // Create an enhanced event object with more details
-      const eventObject = { 
-        eventid: activityId,
-        eventName: eventDetails.eventName || "",
-        eventDate: eventDetails.eventDate || "",
-        assigned: assignedQuantity,
-        remaining: assignedQuantity
-      };
-      
-      const existingEventIndex = usedInEvents.findIndex(item => item.eventid === activityId);
-      
-      if (existingEventIndex === -1) {
-        // Only add the event if it's not already in the array
+    for (const source of sources) {
+      if (remainingToAssign <= 0) break;
+
+      const quantityFromSource = Math.min(source.quantity, remainingToAssign);
+      remainingToAssign -= quantityFromSource;
+
+      if (source.type === 'product') {
+        // Update product collection
+        const productDocRef = doc(db, "products", source.id);
         await updateDoc(productDocRef, {
-          quantity: newProductQuantity,
-          usedinevents: arrayUnion(eventObject)
+          quantity: increment(-quantityFromSource),
+          usedinevents: arrayUnion({
+            eventid: activityId,
+            eventName: eventDetails.eventName || "",
+            eventDate: eventDetails.eventDate || "",
+            assigned: quantityFromSource,
+            remaining: quantityFromSource
+          })
         });
-      } else {
-        // If event already exists, we need to update it with the new values
-        // First remove the old entry, then add the updated one
-        const updatedUsedInEvents = [...usedInEvents];
-        
-        // Remove the old entry
-        updatedUsedInEvents.splice(existingEventIndex, 1);
-        
-        // Add the new entry
-        updatedUsedInEvents.push(eventObject);
-        
-        await updateDoc(productDocRef, {
-          quantity: newProductQuantity,
-          usedinevents: updatedUsedInEvents
+      } else if (source.type === 'res') {
+        // Update res collection - update BOTH quantity and remaining fields
+        const resDocRef = doc(db, "res", source.id);
+        await updateDoc(resDocRef, {
+          quantity: increment(-quantityFromSource), // Decrement the main quantity field
+          remaining: increment(-quantityFromSource), // Also decrement the remaining field
+          usedinevents: arrayUnion({
+            eventid: activityId,
+            eventName: eventDetails.eventName || "",
+            eventDate: eventDetails.eventDate || "",
+            assigned: quantityFromSource,
+            remaining: quantityFromSource
+          })
         });
       }
-    } else {
-      // If product doesn't exist yet (unusual case)
-      await setDoc(productDocRef, {
-        quantity: newProductQuantity,
-        usedinevents: [{ 
-          eventid: activityId,
-          eventName: eventDetails.eventName || "",
-          eventDate: eventDetails.eventDate || "",
-          assigned: assignedQuantity,
-          remaining: assignedQuantity
-        }]
-      });
     }
 
-    // 4. Update the UI
-    setInventoryItems(prev => [
-      ...prev,
-      {
-        ...selectedProduct,
-        id: selectedProduct.id,
-        productid: selectedProduct.id,
+    if (existingItemIndex !== -1) {
+      // Update existing item
+      const existingItem = inventoryItems[existingItemIndex];
+      const newAssignedQuantity = existingItem.assigned + assignedQuantity;
+      const newRemainingQuantity = existingItem.remaining + assignedQuantity;
+
+      // Update in activity's inventory subcollection
+      const inventoryDocRef = doc(db, "activities", activityId, "inventory", existingItem.productid);
+      await updateDoc(inventoryDocRef, {
+        assigned: newAssignedQuantity,
+        remaining: newRemainingQuantity,
+        sources: [...(existingItem.sources || []), ...sources]
+      });
+
+      // Update in activity's main document
+      const activityDocRef = doc(db, "activities", activityId);
+      const activityDoc = await getDoc(activityDocRef);
+      if (activityDoc.exists()) {
+        const inventory = activityDoc.data().inventory || [];
+        const updatedInventory = inventory.map(item => {
+          if ((typeof item === 'string' && item === existingItem.productid) ||
+              (item.productid === existingItem.productid)) {
+            return {
+              ...item,
+              assignedQuantity: newAssignedQuantity,
+              sources: [...(item.sources || []), ...sources]
+            };
+          }
+          return item;
+        });
+
+        await updateDoc(activityDocRef, {
+          inventory: updatedInventory
+        });
+      }
+
+      // Update UI
+      setInventoryItems(prev => 
+        prev.map(item => {
+          if (item.productid === existingItem.productid) {
+            return {
+              ...item,
+              assigned: newAssignedQuantity,
+              remaining: newRemainingQuantity,
+              sources: [...(item.sources || []), ...sources]
+            };
+          }
+          return item;
+        })
+      );
+    } else {
+      // Add new item
+      // Prepare common data fields with proper fallbacks to prevent undefined values
+      const productName = selectedProduct.productName || "Unnamed Item";
+      
+      // Prepare resource-specific fields with fallbacks
+      const resourceName = selectedProduct.resourceName || selectedProduct.resource || productName;
+      const resource = selectedProduct.resource || productName;
+      
+      // Create item data object with all required fields properly defaulted
+      const itemData = {
         productname: productName,
-        category: category,
+        category: selectedProduct.category || "Uncategorized",
         assigned: assignedQuantity,
         used: 0,
-        remaining: assignedQuantity
+        remaining: assignedQuantity,
+        sources: selectedProduct.sources || [],
+        type: selectedProduct.type || "product",
+        addedAt: new Date().toISOString(),
+        activityId: activityId,
+        ngoId: ngoId
+      };
+      
+      // Only add resource-specific fields if this is a resource/donation
+      if (selectedProduct.type === 'res') {
+        itemData.resource = resource;
+        itemData.resourceName = resourceName;
       }
-    ]);
-    
-    // Update the product in availableProducts array
-    setAvailableProducts(prev => 
-      prev.map(product => 
-        product.id === selectedProduct.id 
-          ? { 
-              ...product, 
-              quantity: newProductQuantity,
-              usedinevents: [...(product.usedinevents || []).filter(item => item.eventid !== activityId), { 
-                eventid: activityId,
-                eventName: eventDetails.eventName || "",
-                eventDate: eventDetails.eventDate || "",
-                assigned: assignedQuantity,
-                remaining: assignedQuantity
-              }]
-            }
-          : product
-      )
-    );
-    
+      
+      // Add to activity's inventory
+      const activityDocRef = doc(db, "activities", activityId);
+      await updateDoc(activityDocRef, {
+        inventory: arrayUnion({
+          productid: selectedProduct.id,
+          assignedQuantity: assignedQuantity,
+          sources: selectedProduct.sources || [],
+          type: selectedProduct.type || "product"
+        })
+      });
+
+      // Add to activity's inventory subcollection
+      const inventoryDocRef = doc(db, "activities", activityId, "inventory", selectedProduct.id);
+      await setDoc(inventoryDocRef, itemData);
+
+      // Update UI
+      setInventoryItems(prev => [
+        ...prev,
+        {
+          ...selectedProduct,
+          ...itemData,
+          productid: selectedProduct.id
+        }
+      ]);
+    }
+
     // Reset and close
     setIsDialogOpen(false);
     setSelectedProduct(null);
     setAssignedQuantity(1);
+    
   } catch (error) {
     console.error("Error adding product:", error);
     alert("Failed to add product. Please try again.");
@@ -418,81 +620,123 @@ const handleUpdateProduct = async () => {
     });
     
     // 2. Update the activity's inventory array
-    // First find the current item in the array
     const activityDocRef = doc(db, "activities", activityId);
-    
-    // Need to know the current activity data to update the specific inventory item
     const activityDoc = await getDoc(activityDocRef);
+    
     if (activityDoc.exists()) {
       const activityData = activityDoc.data();
       let inventory = activityData.inventory || [];
       
-      // Find and update the specific inventory item
       const updatedInventory = inventory.map(item => {
         if (typeof item === 'string' && item === productToUpdate.productid) {
-          // Convert string to object with updated quantity
           return {
             productid: productToUpdate.productid,
-            assignedQuantity: updatedQuantity
+            assignedQuantity: updatedQuantity,
+            type: productToUpdate.type
           };
         } else if (item.productid === productToUpdate.productid) {
-          // Update existing object
           return {
             ...item,
-            assignedQuantity: updatedQuantity
+            assignedQuantity: updatedQuantity,
+            type: productToUpdate.type
           };
         }
         return item;
       });
       
-      // Update the activity document
       await updateDoc(activityDocRef, {
         inventory: updatedInventory
       });
     }
     
-    // 3. Update the product quantity in the main product collection
-    // and update the usedinevents array with new values
-    if (quantityDifference !== 0 || newRemaining !== productToUpdate.remaining) {
-      const productDocRef = doc(db, "products", productToUpdate.productid);
-      const productDoc = await getDoc(productDocRef);
-      
-      if (productDoc.exists()) {
-        const productData = productDoc.data();
-        const currentQuantity = productData.quantity || 0;
-        // If quantityDifference is positive, we're assigning more items (reduce product quantity)
-        // If quantityDifference is negative, we're returning items (increase product quantity)
-        const newProductQuantity = currentQuantity - quantityDifference;
+    // 3. Update the source collection (products or res) based on type
+    if (quantityDifference !== 0) {
+      if (productToUpdate.type === 'res') {
+        // Update res collection
+        const resDocRef = doc(db, "res", productToUpdate.productid);
+        const resDoc = await getDoc(resDocRef);
         
-        // Update the event information in usedinevents array
-        const usedInEvents = productData.usedinevents || [];
-        const existingEventIndex = usedInEvents.findIndex(item => item.eventid === activityId);
-        
-        if (existingEventIndex !== -1) {
-          // If event exists, update it with new values
-          const updatedUsedInEvents = [...usedInEvents];
-          updatedUsedInEvents[existingEventIndex] = {
-            ...updatedUsedInEvents[existingEventIndex],
-            assigned: updatedQuantity,
-            remaining: newRemaining
-          };
+        if (resDoc.exists()) {
+          const resData = resDoc.data();
+          // For donations, we directly update the remaining field AND quantity field
+          // If quantityDifference is positive, we're assigning more items (reduce remaining)
+          // If quantityDifference is negative, we're returning items (increase remaining)
           
-          await updateDoc(productDocRef, {
-            quantity: newProductQuantity,
-            usedinevents: updatedUsedInEvents
-          });
-        } else {
-          // If event doesn't exist (unusual case), add it
-          await updateDoc(productDocRef, {
-            quantity: newProductQuantity,
-            usedinevents: arrayUnion({
-              eventid: activityId,
-              eventName: eventDetails.eventName || "",
-              eventDate: eventDetails.eventDate || "",
+          // First, check if this event is already in usedinevents array
+          const usedInEvents = resData.usedinevents || [];
+          const existingEventIndex = usedInEvents.findIndex(event => event.eventid === activityId);
+          
+          if (existingEventIndex !== -1) {
+            // Update the existing entry
+            const updatedUsedInEvents = [...usedInEvents];
+            updatedUsedInEvents[existingEventIndex] = {
+              ...updatedUsedInEvents[existingEventIndex],
               assigned: updatedQuantity,
-              remaining: newRemaining
-            })
-          });
+              remaining: newRemaining,
+              eventName: eventDetails.eventName || "",
+              eventDate: eventDetails.eventDate || ""
+            };
+            
+            await updateDoc(resDocRef, {
+              quantity: increment(-quantityDifference), // Update main quantity field
+              remaining: increment(-quantityDifference), // Update remaining field
+              usedinevents: updatedUsedInEvents
+            });
+          } else {
+            // Add new entry to usedinevents array
+            await updateDoc(resDocRef, {
+              quantity: increment(-quantityDifference), // Update main quantity field
+              remaining: increment(-quantityDifference), // Update remaining field
+              usedinevents: arrayUnion({
+                eventid: activityId,
+                eventName: eventDetails.eventName || "",
+                eventDate: eventDetails.eventDate || "",
+                assigned: updatedQuantity,
+                remaining: newRemaining
+              })
+            });
+          }
+        }
+      } else {
+        // Update product collection
+        const productDocRef = doc(db, "products", productToUpdate.productid);
+        const productDoc = await getDoc(productDocRef);
+        
+        if (productDoc.exists()) {
+          const productData = productDoc.data();
+          
+          // First, check if this event is already in usedinevents array
+          const usedInEvents = productData.usedinevents || [];
+          const existingEventIndex = usedInEvents.findIndex(event => event.eventid === activityId);
+          
+          if (existingEventIndex !== -1) {
+            // Update the existing entry
+            const updatedUsedInEvents = [...usedInEvents];
+            updatedUsedInEvents[existingEventIndex] = {
+              ...updatedUsedInEvents[existingEventIndex],
+              assigned: updatedQuantity,
+              remaining: newRemaining,
+              eventName: eventDetails.eventName || "",
+              eventDate: eventDetails.eventDate || ""
+            };
+            
+            await updateDoc(productDocRef, {
+              quantity: increment(-quantityDifference),
+              usedinevents: updatedUsedInEvents
+            });
+          } else {
+            // Add new entry to usedinevents array
+            await updateDoc(productDocRef, {
+              quantity: increment(-quantityDifference),
+              usedinevents: arrayUnion({
+                eventid: activityId,
+                eventName: eventDetails.eventName || "",
+                eventDate: eventDetails.eventDate || "",
+                assigned: updatedQuantity,
+                remaining: newRemaining
+              })
+            });
+          }
         }
       }
     }
@@ -544,7 +788,6 @@ const handleDeleteProduct = async () => {
     let quantityToReturn = 0;
     if (inventoryDoc.exists()) {
       const inventoryData = inventoryDoc.data();
-      // We'll return the remaining quantity back to product inventory
       quantityToReturn = inventoryData.remaining || 0;
     }
     
@@ -553,8 +796,6 @@ const handleDeleteProduct = async () => {
     
     // 3. Remove the product from the activity's inventory array
     const activityDocRef = doc(db, "activities", activityId);
-    
-    // Find the exact inventory item object to remove
     const itemToRemove = eventDetails.inventory.find(item => 
       (typeof item === 'string' && item === productToDelete.productid) || 
       (item.productid === productToDelete.productid)
@@ -566,32 +807,61 @@ const handleDeleteProduct = async () => {
       });
     }
     
-    // 4. Update the product collection to increase available quantity
-    // and remove this event from usedinevents array
-    const productDocRef = doc(db, "products", productToDelete.productid);
-    const productDoc = await getDoc(productDocRef);
-    
-    if (productDoc.exists()) {
-      const productData = productDoc.data();
-      const currentQuantity = productData.quantity || 0;
+    // 4. Update the source collection based on type
+    if (productToDelete.type === 'res') {
+      // Update res collection
+      const resDocRef = doc(db, "res", productToDelete.productid);
+      const resDoc = await getDoc(resDocRef);
       
-      // Update quantity
-      await updateDoc(productDocRef, {
-        quantity: currentQuantity + quantityToReturn
-      });
-      
-      // Remove the event from usedinevents array
-      const usedInEvents = productData.usedinevents || [];
-      const existingEventIndex = usedInEvents.findIndex(item => item.eventid === activityId);
-      
-      if (existingEventIndex !== -1) {
-        // If event exists, remove it
-        const updatedUsedInEvents = [...usedInEvents];
-        updatedUsedInEvents.splice(existingEventIndex, 1);
+      if (resDoc.exists()) {
+        const resData = resDoc.data();
+        const currentRemaining = resData.remaining || 0;
         
-        await updateDoc(productDocRef, {
-          usedinevents: updatedUsedInEvents
+        // Update both quantity and remaining fields
+        await updateDoc(resDocRef, {
+          quantity: increment(quantityToReturn), // Increase main quantity
+          remaining: increment(quantityToReturn) // Increase remaining quantity
         });
+        
+        // Remove the event from usedinevents array
+        const usedInEvents = resData.usedinevents || [];
+        const existingEventIndex = usedInEvents.findIndex(item => item.eventid === activityId);
+        
+        if (existingEventIndex !== -1) {
+          const updatedUsedInEvents = [...usedInEvents];
+          updatedUsedInEvents.splice(existingEventIndex, 1);
+          
+          await updateDoc(resDocRef, {
+            usedinevents: updatedUsedInEvents
+          });
+        }
+      }
+    } else {
+      // Update product collection
+      const productDocRef = doc(db, "products", productToDelete.productid);
+      const productDoc = await getDoc(productDocRef);
+      
+      if (productDoc.exists()) {
+        const productData = productDoc.data();
+        const currentQuantity = productData.quantity || 0;
+        
+        // Update quantity
+        await updateDoc(productDocRef, {
+          quantity: currentQuantity + quantityToReturn
+        });
+        
+        // Remove the event from usedinevents array
+        const usedInEvents = productData.usedinevents || [];
+        const existingEventIndex = usedInEvents.findIndex(item => item.eventid === activityId);
+        
+        if (existingEventIndex !== -1) {
+          const updatedUsedInEvents = [...usedInEvents];
+          updatedUsedInEvents.splice(existingEventIndex, 1);
+          
+          await updateDoc(productDocRef, {
+            usedinevents: updatedUsedInEvents
+          });
+        }
       }
     }
     
@@ -621,6 +891,41 @@ const handleDeleteProduct = async () => {
     setIsDeleting(false);
   }
 };
+
+useEffect(() => {
+  const fetchDonations = async () => {
+    if (!authUser) {
+      console.log("No authenticated user found");
+      return;
+    }
+
+    try {
+      // Get the NGO ID from the authenticated user
+      const userDocRef = doc(db, "users", authUser.uid);
+      const userDoc = await getDoc(userDocRef);
+      const ngoId = userDoc.data()?.ngoId || authUser.uid;
+      const currentYear = new Date().getFullYear().toString();
+
+      // Get resources from the res collection
+      const resCollection = collection(db, "res");
+      const resQuery = query(resCollection, where("ngoId", "==", ngoId));
+      const resSnapshot = await getDocs(resQuery);
+      
+      const allResources = resSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      console.log("All resources from res collection:", allResources);
+      setDonations(allResources);
+    } catch (error) {
+      console.error("Error fetching donations:", error);
+    }
+  };
+
+  fetchDonations();
+}, [authUser]);
+
   if (loading) {
     return <div>Loading...</div>;
   }
@@ -628,6 +933,35 @@ const handleDeleteProduct = async () => {
   if (!eventDetails) {
     return <div>Activity not found</div>;
   }
+
+  // Inside the component, add this function to prepare report data
+  const prepareReportData = () => {
+    return {
+      ngoInfo: {
+        name: "NGO Connect Organization",
+        address: "Your organization address",
+        email: "contact@ngoconnect.org",
+      },
+      eventName: eventDetails?.eventName || "Event",
+      eventDate: eventDetails?.eventDate || new Date().toISOString().split('T')[0],
+      location: eventDetails?.location || "N/A",
+      timeFrame: "Event Period",
+      date: new Date().toISOString().split('T')[0],
+      inventoryItems: inventoryItems,
+      productStats: {
+        total: inventoryItems.filter(item => item.type !== 'res').length,
+        assigned: inventoryItems.filter(item => item.type !== 'res').reduce((sum, item) => sum + (item.assigned || 0), 0),
+        used: inventoryItems.filter(item => item.type !== 'res').reduce((sum, item) => sum + (item.used || 0), 0),
+        remaining: inventoryItems.filter(item => item.type !== 'res').reduce((sum, item) => sum + (item.remaining || 0), 0)
+      },
+      donationStats: {
+        total: inventoryItems.filter(item => item.type === 'res').length,
+        assigned: inventoryItems.filter(item => item.type === 'res').reduce((sum, item) => sum + (item.assigned || 0), 0),
+        used: inventoryItems.filter(item => item.type === 'res').reduce((sum, item) => sum + (item.used || 0), 0),
+        remaining: inventoryItems.filter(item => item.type === 'res').reduce((sum, item) => sum + (item.remaining || 0), 0)
+      }
+    };
+  };
 
   return (
     <motion.div
@@ -665,7 +999,7 @@ const handleDeleteProduct = async () => {
       </Card>
 
       <Card>
-        <CardContent className="flex items-baseline">
+        <CardContent className="flex items-baseline mt-5">
           <CardTitle className="text-left text-2xl">Inventory Assigned to This Event</CardTitle>
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -682,35 +1016,91 @@ const handleDeleteProduct = async () => {
               <div className="mt-4">
                 <Command className="rounded-lg border shadow-sm">
                   <CommandInput 
-                    placeholder="Search products..." 
+                    placeholder="Search products and donations..." 
                     className="h-9"
                     value={searchQuery}
                     onValueChange={setSearchQuery}
                   />
                   <CommandList className="max-h-60 overflow-auto">
-                    <CommandEmpty>No products found.</CommandEmpty>
-                    <CommandGroup>
+                    <CommandEmpty>No items found.</CommandEmpty>
+                    <CommandGroup heading="Products">
                       {availableProducts
                         .filter(product => {
-                          const searchIn = (product.productName || product.name || "").toLowerCase();
-                          return searchIn.includes(searchQuery.toLowerCase());
+                          if (!product || !product.productName) return false;
+                          const searchIn = product.productName.toLowerCase();
+                          return searchIn.includes((searchQuery || '').toLowerCase());
                         })
                         .map(product => (
                           <CommandItem
                             key={product.id}
                             onSelect={() => {
-                              setSelectedProduct(product);
+                              setSelectedProduct({
+                                ...product,
+                                id: product.id,
+                                type: 'product',
+                                productName: product.productName || 'Unnamed Product',
+                                category: product.category || 'Uncategorized',
+                                quantity: product.quantity || 0
+                              });
                               setSearchQuery("");
                             }}
                             className="flex items-center justify-between py-2"
                           >
                             <div>
-                              <div className="font-medium">{product.productName || product.name}</div>
-                              <div className="text-sm text-gray-500">{product.category}</div>
+                              <div className="font-medium">{product.productName || 'Unnamed Product'}</div>
+                              <div className="text-sm text-gray-500">{product.category || 'Uncategorized'}</div>
                             </div>
-                            <Badge variant="outline" className="ml-2">
-                              Qty: {product.quantity || 0}
-                            </Badge>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="ml-2">
+                                Qty: {product.quantity || 0}
+                              </Badge>
+                              <Badge variant="secondary">Product</Badge>
+                            </div>
+                          </CommandItem>
+                        ))
+                      }
+                    </CommandGroup>
+                    <CommandGroup heading="Donations">
+                      {resItems
+                        .filter(item => {
+                          if (!item || !item.productName) return false;
+                          const searchIn = item.productName.toLowerCase();
+                          return searchIn.includes((searchQuery || '').toLowerCase());
+                        })
+                        .map(item => (
+                          <CommandItem
+                            key={item.id}
+                            onSelect={() => {
+                              setSelectedProduct({
+                                ...item,
+                                id: item.id,
+                                type: 'res',
+                                productName: item.productName || 'Unnamed Donation',
+                                resource: item.resource || item.productName,
+                                resourceName: item.resourceName || item.productName,
+                                category: item.category || 'Uncategorized',
+                                quantity: item.remaining || 0,
+                                remaining: item.remaining || 0,
+                                resourceId: item.id,
+                                isResource: true,
+                                itemType: 'Donation'
+                              });
+                              setSearchQuery("");
+                            }}
+                            className="flex items-center justify-between py-2"
+                          >
+                            <div>
+                              <div className="font-medium">{item.resourceName || item.productName || 'Unnamed Donation'}</div>
+                              <div className="text-sm text-gray-500">
+                                Resource: {item.resource || item.productName || 'N/A'} • {item.category || 'Uncategorized'}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="ml-2">
+                                Qty: {item.remaining || 0}
+                              </Badge>
+                              <Badge variant="destructive">Donation</Badge>
+                            </div>
                           </CommandItem>
                         ))
                       }
@@ -723,9 +1113,10 @@ const handleDeleteProduct = async () => {
                 <div className="mt-4 space-y-4">
                   <div className="flex items-center justify-between bg-blue-50 p-3 rounded-md">
                     <div>
-                      <div className="font-medium">{selectedProduct.productName || selectedProduct.name}</div>
+                      <div className="font-medium">{selectedProduct.productName}</div>
                       <div className="text-sm text-gray-500">
-                        {selectedProduct.category} • Available: {selectedProduct.quantity || 0}
+                        {selectedProduct.category} • Available: {selectedProduct.quantity}
+                        {selectedProduct.type === 'res' && ' (Donation)'}
                       </div>
                     </div>
                     <Button
@@ -803,28 +1194,35 @@ const handleDeleteProduct = async () => {
       </Card>
 
       <Card>
-        <CardContent>
+        <CardContent className="mt-5">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Product Name</TableHead>
+                <TableHead>Item Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Assigned</TableHead>
                 <TableHead>Used</TableHead>
                 <TableHead>Remaining</TableHead>
-                <TableHead>Expiry Date</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {inventoryItems.map((item) => (
-                <TableRow key={item.productid}>
-                  <TableCell className="font-medium">{item.productname}</TableCell>
+              {inventoryItems.map((item, index) => (
+                <TableRow key={`${item.productid}-${index}`}>
+                  <TableCell className="font-medium">
+                    {item.type === 'res' ? (
+                      <div>
+                        <div>{item.resourceName || 'Unnamed Item'}</div>
+                        <div className="text-xs text-gray-500">{item.resource || 'General'}</div>
+                      </div>
+                    ) : (
+                      item.productname
+                    )}
+                  </TableCell>
                   <TableCell>{item.category}</TableCell>
                   <TableCell>{item.assigned}</TableCell>
                   <TableCell>{item.used}</TableCell>
                   <TableCell>{item.remaining}</TableCell>
-                  <TableCell>{item.expiry || 'N/A'}</TableCell>
                   <TableCell>
                     <div className="flex space-x-2">
                       <Button asChild>
@@ -860,46 +1258,126 @@ const handleDeleteProduct = async () => {
           <CardTitle>Inventory Usage Trends & Analytics</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={inventoryItems}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="productname" />
-                <YAxis />
-                <Tooltip />
-                <Line type="monotone" dataKey="assigned" stroke="#8884d8" name="Total Assigned" />
-                <Line type="monotone" dataKey="used" stroke="#82ca9d" name="Used" />
-              </LineChart>
-            </ResponsiveContainer>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Products Usage</h3>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={inventoryItems.filter(item => item.type !== 'res')}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="productname" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="assigned" stroke="#8884d8" name="Total Assigned" />
+                    <Line type="monotone" dataKey="used" stroke="#82ca9d" name="Used" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+            
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Donations Usage</h3>
+              <div className="h-[250px]">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={inventoryItems.filter(item => item.type === 'res')}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="resourceName" />
+                    <YAxis />
+                    <Tooltip />
+                    <Line type="monotone" dataKey="assigned" stroke="#ff7979" name="Total Assigned" />
+                    <Line type="monotone" dataKey="used" stroke="#e17055" name="Used" />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
           </div>
-          <div className="mt-4 space-y-2">
-            <h3 className="font-semibold">Frequently Used Items:</h3>
-            <ul className="list-disc list-inside">
-              {inventoryItems
-                .filter(item => (item.used || 0) > (item.assigned || 0) * 0.5)
-                .map(item => (
-                  <li key={item.productid}>{item.productname}</li>
-                ))}
-            </ul>
+
+          <div className="mt-4 grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <h3 className="font-semibold">Frequently Used Products:</h3>
+              <ul className="list-disc list-inside">
+                {inventoryItems
+                  .filter(item => item.type !== 'res' && (item.used || 0) > (item.assigned || 0) * 0.5)
+                  .map(item => (
+                    <li key={item.productid}>{item.productname}</li>
+                  ))}
+              </ul>
+            </div>
+            <div className="space-y-2">
+              <h3 className="font-semibold">Frequently Used Donations:</h3>
+              <ul className="list-disc list-inside">
+                {inventoryItems
+                  .filter(item => item.type === 'res' && (item.used || 0) > (item.assigned || 0) * 0.5)
+                  .map(item => (
+                    <li key={item.productid}>{item.resourceName} ({item.resource})</li>
+                  ))}
+              </ul>
+            </div>
+          </div>
+          <div className="mt-4">
+            <h3 className="font-semibold">Inventory Summary:</h3>
+            <div className="grid grid-cols-2 gap-4 mt-2">
+              <div className="bg-blue-50 p-3 rounded-md">
+                <div className="text-lg font-medium">Products</div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div>Total Items: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type !== 'res').length}
+                  </span></div>
+                  <div>Total Assigned: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type !== 'res').reduce((sum, item) => sum + (item.assigned || 0), 0)}
+                  </span></div>
+                  <div>Total Used: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type !== 'res').reduce((sum, item) => sum + (item.used || 0), 0)}
+                  </span></div>
+                  <div>Total Remaining: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type !== 'res').reduce((sum, item) => sum + (item.remaining || 0), 0)}
+                  </span></div>
+                </div>
+              </div>
+              <div className="bg-red-50 p-3 rounded-md">
+                <div className="text-lg font-medium">Donations</div>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <div>Total Items: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type === 'res').length}
+                  </span></div>
+                  <div>Total Assigned: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type === 'res').reduce((sum, item) => sum + (item.assigned || 0), 0)}
+                  </span></div>
+                  <div>Total Used: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type === 'res').reduce((sum, item) => sum + (item.used || 0), 0)}
+                  </span></div>
+                  <div>Total Remaining: <span className="font-medium">
+                    {inventoryItems.filter(item => item.type === 'res').reduce((sum, item) => sum + (item.remaining || 0), 0)}
+                  </span></div>
+                </div>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
 
       <div className="flex justify-end">
-        <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
-          <FileText className="mr-2 h-4 w-4" />
-          Generate PDF Report
-        </Button>
+        {!loading && inventoryItems.length > 0 && (
+          <PDFDownloadButton
+            reportData={prepareReportData()}
+            fileName={`${eventDetails.eventName || 'Event'}_Inventory_Report.pdf`}
+          />
+        )}
       </div>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Product from Event</AlertDialogTitle>
+            <AlertDialogTitle>Delete {productToDelete?.type === 'res' ? 'Donation' : 'Product'} from Event</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to remove <strong>{productToDelete?.productname}</strong> from this event? 
-              Any remaining quantity will be returned to inventory.
+              Are you sure you want to remove 
+              {productToDelete?.type === 'res' ? (
+                <strong> {productToDelete?.resourceName || 'this donation'} ({productToDelete?.resource || 'General'}) </strong>
+              ) : (
+                <strong> {productToDelete?.productname} </strong>
+              )}
+              from this event? Any remaining quantity will be returned to inventory.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -934,16 +1412,31 @@ const handleDeleteProduct = async () => {
           
           {productToUpdate && (
             <div className="mt-4 space-y-4">
-              <div className="bg-blue-50 p-3 rounded-md">
-                <div className="font-medium">{productToUpdate.productname}</div>
+              <div className={productToUpdate.type === 'res' ? "bg-red-50 p-3 rounded-md" : "bg-blue-50 p-3 rounded-md"}>
+                <div className="font-medium">
+                  {productToUpdate.type === 'res' ? (
+                    <>
+                      {productToUpdate.resourceName || 'Unnamed Item'}
+                      <div className="text-sm font-normal text-gray-700">{productToUpdate.resource || 'General'}</div>
+                    </>
+                  ) : (
+                    productToUpdate.productname
+                  )}
+                </div>
                 <div className="text-sm text-gray-500">
-                  Category: {productToUpdate.category}
+                  Category: {productToUpdate.category} • 
+                  <Badge variant={productToUpdate.type === 'res' ? "destructive" : "secondary"} className="ml-2">
+                    {productToUpdate.type === 'res' ? "Donation" : "Product"}
+                  </Badge>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-2 text-sm">
                   <div>Currently Assigned: <span className="font-medium">{productToUpdate.assigned}</span></div>
                   <div>Used: <span className="font-medium">{productToUpdate.used || 0}</span></div>
-                  <div>Remaining: <span className="font-medium">{productToUpdate.remaining || 0}</span></div>
-                  <div>In Inventory: <span className="font-medium">{currentProductDetails?.quantity || 0}</span></div>
+                  <div>Remaining in Event: <span className="font-medium">{productToUpdate.remaining || 0}</span></div>
+                  <div>Available in {productToUpdate.type === 'res' ? "Donations" : "Inventory"}: <span className="font-medium">{currentProductDetails?.quantity || 0}</span></div>
+                  {productToUpdate.type === 'res' && (
+                    <div className="col-span-2">Donation Source ID: <span className="font-medium">{productToUpdate.productid}</span></div>
+                  )}
                 </div>
               </div>
 
@@ -964,7 +1457,7 @@ const handleDeleteProduct = async () => {
                     id="updatedQuantity"
                     type="number"
                     value={updatedQuantity}
-                    onChange={handleUpdateQuantityChange}
+                    onChange={handleUpdateQuantityChange}   
                     min={0}
                     className="h-8 mx-2 w-20 text-center"
                   />
@@ -976,11 +1469,14 @@ const handleDeleteProduct = async () => {
                     onClick={handleIncreaseUpdateQuantity}
                     disabled={
                       (currentProductDetails?.quantity || 0) <= 0 || 
-                      updatedQuantity >= (productToUpdate.assigned + currentProductDetails?.quantity || 0)
+                      updatedQuantity >= (productToUpdate.assigned + (currentProductDetails?.quantity || 0))
                     }
                   >
                     <Plus className="h-4 w-4" />
                   </Button>
+                  <span className="ml-2 text-sm text-gray-500">
+                    Max: {productToUpdate.assigned + (currentProductDetails?.quantity || 0)}
+                  </span>
                 </div>
                 {productToUpdate.used > 0 && productToUpdate.used > updatedQuantity && (
                   <div className="mt-2 text-sm text-red-500 flex items-center">

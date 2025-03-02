@@ -74,7 +74,7 @@ export function ResDonationTable() {
   const [donorName, setDonorName] = useState("");
   const [donorEmail, setDonorEmail] = useState("");
   const [donorPhone, setDonorPhone] = useState("");
-  const [resource, setResource] = useState("");
+  const [resourceName, setResourceName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState(null);
@@ -510,7 +510,7 @@ export function ResDonationTable() {
     setDonorName(donation.rawData.donorName || "");
     setDonorEmail(donation.rawData.donorEmail || "");
     setDonorPhone(donation.rawData.donorPhone || "");
-    setResource(donation.rawData.resource || "");
+    setResourceName(donation.rawData.resource || "");
     setQuantity(donation.rawData.quantity || "");
     setReason(donation.rawData.reason || "");
     setEditModalOpen(true);
@@ -524,7 +524,7 @@ export function ResDonationTable() {
       donorName: donorName,
       donorEmail: donorEmail,
       donorPhone: donorPhone,
-      resource: resource,
+      resource: resourceName,
       quantity: quantity,
       status: "pending",
       reason: null,
@@ -661,7 +661,8 @@ export function ResDonationTable() {
       !newDonorPhone ||
       !newResource ||
       !newQuantity ||
-      !donatedOn
+      !donatedOn ||
+      !resourceName
     ) {
       toast.error("Please fill all the required fields");
       return;
@@ -679,13 +680,14 @@ export function ResDonationTable() {
       const ngoDoc = await getDoc(ngoDocRef);
       const ngoName = ngoDoc.exists() ? ngoDoc.data().ngoName : "";
 
-      // Create donation approval document
-      await setDoc(docRef, {
+      // Create donation data object
+      const donationData = {
         type: "resource",
         donorName: newDonorName,
         donorEmail: newDonorEmail,
         donorPhone: newDonorPhone,
         resource: newResource,
+        resourceName: resourceName,
         quantity: Number(newQuantity),
         donatedOn,
         donationApprovalId,
@@ -695,6 +697,16 @@ export function ResDonationTable() {
         timestamp: new Date().toLocaleString(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
+      };
+
+      // Store in donationApprovals collection
+      await setDoc(docRef, donationData);
+
+      // Store in res collection
+      const resRef = doc(db, "res", donationApprovalId);
+      await setDoc(resRef, {
+        ...donationData,
+        // Add any additional fields specific to res collection if needed
       });
 
       await fetch("/api/donation-approval-resources", {
@@ -734,6 +746,7 @@ Confirmation Link: ${window.location.origin}/donation-approvals/${donationApprov
       setNewResource("");
       setNewQuantity("");
       setDonatedOn("");
+      setResourceName("");
       setAddResourceDialogOpen(false);
 
       toast.success("Resource donation added for approval", { id: toasting });
@@ -1166,8 +1179,8 @@ Confirmation Link: ${window.location.origin}/donation-approvals/${donationApprov
               </Label>
               <Input
                 id="resource"
-                value={resource}
-                onChange={(e) => setResource(e.target.value)}
+                value={resourceName}
+                onChange={(e) => setResourceName(e.target.value)}
                 disabled={selectedDonation?.status !== "Rejected"}
                 className="col-span-3"
               />
@@ -1322,6 +1335,13 @@ Confirmation Link: ${window.location.origin}/donation-approvals/${donationApprov
                 type="tel"
                 value={newDonorPhone}
                 onChange={(e) => setNewDonorPhone(e.target.value)}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label>Resource </Label>
+              <Input
+                value={resourceName}
+                onChange={(e) => setResourceName(e.target.value)}
               />
             </div>
             <div className="grid gap-2">

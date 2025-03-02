@@ -19,11 +19,12 @@ import { PDFDownloadLink } from "@react-pdf/renderer";
 import PDFTemplate from "@/components/reports/pdf-template";
 import Loading from "@/components/loading/Loading";
 import { useRouter } from "next/navigation";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, getDocs, query, where, collectionGroup } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
 import ActivitiesReports from "@/components/reports/activities/activities-reports";
 // import ActivitiesReports from "@/components/reports/activities/activities-reports";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function NGOReportsPage() {
   const [user, setUser] = useState(null);
@@ -33,6 +34,8 @@ export default function NGOReportsPage() {
   const router = useRouter();
   const [timeFrame, setTimeFrame] = useState("1month");
   const [isExporting, setIsExporting] = useState(false);
+  const [donationsData, setDonationsData] = useState([]);
+  const [activitiesData, setActivitiesData] = useState([]);
   const [reportData, setReportData] = useState({
     timeFrame: "1month",
     donations: {
@@ -54,6 +57,7 @@ export default function NGOReportsPage() {
       newMembers: 50,
     },
   });
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -84,34 +88,94 @@ export default function NGOReportsPage() {
     // Placeholder for report scheduling functionality
     console.log("Scheduling report...");
   };
+
   const checkAccess = async (uid) => {
     try {
       const userDoc = await getDoc(doc(db, "users", uid));
-
-      if (!userDoc.exists()) {
-        router.replace("/login");
-        return;
-      }
-
       const userData = userDoc.data();
 
-      // If user is level1 member, redirect them
-      if (
-        userData.type === "ngo" &&
-        userData.role === "member" &&
-        userData.accessLevel === "level1"
-      ) {
-        router.replace("/dashboard/ngo");
+      if (!userDoc.exists() || userData.role !== "admin") {
+        router.replace("/dashboard");
         return;
       }
 
-      // Access is granted, allow the component to render
       setAccessGranted(true);
-      setInitialized(true);
-      setLoading(false);
+      fetchDonationsData(uid);
+      fetchActivitiesData(uid);
     } catch (error) {
       console.error("Error checking access:", error);
-      router.replace("/login");
+      router.replace("/dashboard");
+    }
+  };
+
+  const fetchDonationsData = async (ngoId) => {
+    try {
+      const currentYear = new Date().getFullYear().toString();
+      let allDonations = [];
+
+      // Fetch cash donations
+      const cashDonations = await getDocs(collectionGroup(db, "cash"));
+      cashDonations.forEach((doc) => {
+        const path = doc.ref.path;
+        if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+          const donationData = {
+            id: doc.id,
+            ...doc.data(),
+            paymentMethod: "Cash",
+          };
+          allDonations.push(donationData);
+        }
+      });
+
+      // Fetch online donations
+      const onlineDonations = await getDocs(collectionGroup(db, "online"));
+      onlineDonations.forEach((doc) => {
+        const path = doc.ref.path;
+        if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+          const donationData = {
+            id: doc.id,
+            ...doc.data(),
+            paymentMethod: "Online",
+          };
+          allDonations.push(donationData);
+        }
+      });
+
+      setDonationsData(allDonations);
+    } catch (error) {
+      console.error("Error fetching donations data:", error);
+    }
+  };
+
+  const fetchActivitiesData = async (ngoId) => {
+    try {
+      // Get user document to get activities IDs
+      const userDoc = await getDoc(doc(db, "users", ngoId));
+      if (!userDoc.exists()) {
+        console.error("User document not found");
+        setLoading(false);
+        return;
+      }
+
+      const activitiesIds = userDoc.data().activities || [];
+      
+      // Fetch each activity document
+      const activitiesPromises = activitiesIds.map(async (activityId) => {
+        const activityDoc = await getDoc(doc(db, "activities", activityId));
+        if (activityDoc.exists()) {
+          return { id: activityId, ...activityDoc.data() };
+        }
+        return null;
+      });
+
+      const activitiesResults = await Promise.all(activitiesPromises);
+      const validActivities = activitiesResults.filter(activity => activity !== null);
+      
+      setActivitiesData(validActivities);
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching activities data:", error);
+      setLoading(false);
     }
   };
 
@@ -145,36 +209,14 @@ export default function NGOReportsPage() {
             <SelectItem value="1year">1 Year</SelectItem>
           </SelectContent>
         </Select>
-        <div className="space-x-2">
-          <PDFDownloadLink
-            document={<PDFTemplate reportData={reportData} />}
-            fileName={`NGO_Report_${timeFrame}.pdf`}
-          >
-            {({ blob, url, loading, error }) => (
-              <Button
-                onClick={handleExportPDF}
-                disabled={loading || isExporting}
-              >
-                <FileText className="mr-2 h-4 w-4" />
-                {loading ? "Generating..." : "Export PDF"}
-              </Button>
-            )}
-          </PDFDownloadLink>
-          <Button onClick={handleShareReport}>
-            <Mail className="mr-2 h-4 w-4" /> Share Report
-          </Button>
-          <Button onClick={handleScheduleReport}>
-            <Clock className="mr-2 h-4 w-4" /> Schedule Report
-          </Button>
-        </div>
       </div>
 
-      <Tabs defaultValue="donations" className="space-y-4">
+      <Tabs defaultValue="charts" className="space-y-4">
         <TabsList>
           <TabsTrigger value="donations">Donations</TabsTrigger>
           <TabsTrigger value="activities">Activities</TabsTrigger>
-          {/* <TabsTrigger value="members">Members</TabsTrigger> */}
-          <TabsTrigger value="graphs">Graph Generator</TabsTrigger>
+          <TabsTrigger value="charts">Charts & Graphs</TabsTrigger>
+          {/* <TabsTrigger value="exports">Exports & Downloads</TabsTrigger> */}
         </TabsList>
 
         <TabsContent value="donations">
@@ -185,12 +227,68 @@ export default function NGOReportsPage() {
           <ActivitiesReports timeFrame={timeFrame} />
         </TabsContent>
 
-        {/* <TabsContent value="members">
-          <MemberReports timeFrame={timeFrame} />
-        </TabsContent> */}
-
-        <TabsContent value="graphs">
-          <GraphGenerator timeFrame={timeFrame} />
+        <TabsContent value="charts">
+          <div className="grid grid-cols-1 gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Monthly Data Visualization</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="mb-4 text-sm text-muted-foreground">
+                  Generate charts from your donations and activities data. Select your data source and chart type, then download as PNG.
+                </p>
+                
+                <GraphGenerator 
+                  donationsData={donationsData} 
+                  activitiesData={activitiesData} 
+                />
+              </CardContent>
+            </Card>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Donation Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Total Donations: {donationsData.length}
+                  </p>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Total Amount: ${donationsData.reduce((sum, donation) => sum + Number(donation.amount || 0), 0).toLocaleString()}
+                  </p>
+                </CardContent>
+              </Card>
+              
+              <Card>
+                <CardHeader>
+                  <CardTitle>Activity Stats</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Total Activities: {activitiesData.length}
+                  </p>
+                  <p className="mb-2 text-sm text-muted-foreground">
+                    Participants: {activitiesData.reduce((sum, activity) => sum + Number(activity.participants || activity.registeredCount || 0), 0)}
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="exports">
+          <Card>
+            <CardHeader>
+              <CardTitle>Export Reports</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="mb-4 text-sm text-muted-foreground">
+                This section will allow you to export detailed reports as PDF or CSV. 
+                Currently, you can generate and download charts from the Charts & Graphs tab.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </motion.div>

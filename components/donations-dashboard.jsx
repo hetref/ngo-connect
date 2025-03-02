@@ -11,7 +11,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { collectionGroup, getDocs } from "firebase/firestore";
+import { collectionGroup, getDocs, doc, getDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { startOfWeek, format, addDays, subWeeks, parseISO } from "date-fns";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -30,117 +30,160 @@ export function DonationsDashboard() {
   const [loading, setLoading] = useState(true);
   const [selectedWeek, setSelectedWeek] = useState("thisWeek");
   const [viewMode, setViewMode] = useState("all"); // all, cash, online
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    const fetchDonationData = async () => {
+    const fetchUserData = async () => {
       try {
-        const ngoId = auth.currentUser?.uid;
-        if (!ngoId) {
-          console.log("No NGO ID found");
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log("No user found");
           setLoading(false);
           return;
         }
 
-        const currentYear = new Date().getFullYear().toString();
-        let allDonations = [];
-        let cashDonationsArray = [];
-        let onlineDonationsArray = [];
+        // Get user document to check role and type
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (!userDoc.exists()) {
+          console.log("User document not found");
+          setLoading(false);
+          return;
+        }
 
-        // Fetch all cash donations
-        const cashDonations = await getDocs(collectionGroup(db, "cash"));
-        cashDonations.forEach((doc) => {
-          const path = doc.ref.path;
-          if (path.includes(`donations/${ngoId}/${currentYear}`)) {
-            const donationData = {
-              id: doc.id,
-              ...doc.data(),
-              paymentMethod: "Cash",
-            };
+        const userDataFromFirestore = userDoc.data();
+        setUserData(userDataFromFirestore);
 
-            // Ensure donation has a date
-            donationData.donationDate = extractDonationDate(donationData);
-
-            allDonations.push(donationData);
-            cashDonationsArray.push(donationData);
-          }
-        });
-
-        // Fetch all online donations
-        const onlineDonations = await getDocs(collectionGroup(db, "online"));
-        onlineDonations.forEach((doc) => {
-          const path = doc.ref.path;
-          if (path.includes(`donations/${ngoId}/${currentYear}`)) {
-            const donationData = {
-              id: doc.id,
-              ...doc.data(),
-              paymentMethod: "Online",
-            };
-
-            // Ensure donation has a date
-            donationData.donationDate = extractDonationDate(donationData);
-
-            allDonations.push(donationData);
-            onlineDonationsArray.push(donationData);
-          }
-        });
-
-        console.log("Cash donations:", cashDonationsArray);
-        console.log("Online donations:", onlineDonationsArray);
-
-        // Calculate total donations
-        const totalDonated = allDonations.reduce(
-          (sum, donation) => sum + Number(donation.amount || 0),
-          0
-        );
-
-        // Calculate cash donations
-        const cashDonated = cashDonationsArray.reduce(
-          (sum, donation) => sum + Number(donation.amount || 0),
-          0
-        );
-
-        // Calculate online donations
-        const onlineDonated = onlineDonationsArray.reduce(
-          (sum, donation) => sum + Number(donation.amount || 0),
-          0
-        );
-
-        // Generate weekly data for this week (all donations)
-        const weeklyData = generateWeeklyData(allDonations, false);
-
-        // Generate weekly data for last week (all donations)
-        const lastWeekData = generateWeeklyData(allDonations, true);
-
-        // Generate weekly data for this week (cash donations only)
-        const cashDonationsByDay = generateWeeklyData(
-          cashDonationsArray,
-          false
-        );
-
-        // Generate weekly data for this week (online donations only)
-        const onlineDonationsByDay = generateWeeklyData(
-          onlineDonationsArray,
-          false
-        );
-
-        setDonationStats({
-          totalDonated,
-          cashDonated,
-          onlineDonated,
-          weeklyData,
-          lastWeekData,
-          cashDonationsByDay,
-          onlineDonationsByDay,
-        });
-        setLoading(false);
+        // Now that we have user data, fetch donation data
+        await fetchDonationData(userDataFromFirestore);
       } catch (error) {
-        console.error("Error fetching donation data:", error);
+        console.error("Error fetching user data:", error);
         setLoading(false);
       }
     };
 
-    fetchDonationData();
+    fetchUserData();
   }, []);
+
+  const fetchDonationData = async (userDataFromFirestore) => {
+    try {
+      // Determine which NGO ID to use based on user type and role
+      let ngoId;
+
+      if (userDataFromFirestore.type === "ngo") {
+        if (userDataFromFirestore.role === "admin") {
+          // For NGO admin, use their own ID
+          ngoId = auth.currentUser.uid;
+        } else if (userDataFromFirestore.role === "member") {
+          // For NGO member, use the ngoId from their user data
+          ngoId = userDataFromFirestore.ngoId;
+        }
+      } else {
+        // For other user types, use their own ID (fallback)
+        ngoId = auth.currentUser.uid;
+      }
+
+      if (!ngoId) {
+        console.log("No NGO ID found");
+        setLoading(false);
+        return;
+      }
+
+      console.log("Using NGO ID for donations:", ngoId);
+
+      const currentYear = new Date().getFullYear().toString();
+      let allDonations = [];
+      let cashDonationsArray = [];
+      let onlineDonationsArray = [];
+
+      // Fetch all cash donations
+      const cashDonations = await getDocs(collectionGroup(db, "cash"));
+      cashDonations.forEach((doc) => {
+        const path = doc.ref.path;
+        if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+          const donationData = {
+            id: doc.id,
+            ...doc.data(),
+            paymentMethod: "Cash",
+          };
+
+          // Ensure donation has a date
+          donationData.donationDate = extractDonationDate(donationData);
+
+          allDonations.push(donationData);
+          cashDonationsArray.push(donationData);
+        }
+      });
+
+      // Fetch all online donations
+      const onlineDonations = await getDocs(collectionGroup(db, "online"));
+      onlineDonations.forEach((doc) => {
+        const path = doc.ref.path;
+        if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+          const donationData = {
+            id: doc.id,
+            ...doc.data(),
+            paymentMethod: "Online",
+          };
+
+          // Ensure donation has a date
+          donationData.donationDate = extractDonationDate(donationData);
+
+          allDonations.push(donationData);
+          onlineDonationsArray.push(donationData);
+        }
+      });
+
+      console.log("Cash donations:", cashDonationsArray);
+      console.log("Online donations:", onlineDonationsArray);
+
+      // Calculate total donations
+      const totalDonated = allDonations.reduce(
+        (sum, donation) => sum + Number(donation.amount || 0),
+        0
+      );
+
+      // Calculate cash donations
+      const cashDonated = cashDonationsArray.reduce(
+        (sum, donation) => sum + Number(donation.amount || 0),
+        0
+      );
+
+      // Calculate online donations
+      const onlineDonated = onlineDonationsArray.reduce(
+        (sum, donation) => sum + Number(donation.amount || 0),
+        0
+      );
+
+      // Generate weekly data for this week (all donations)
+      const weeklyData = generateWeeklyData(allDonations, false);
+
+      // Generate weekly data for last week (all donations)
+      const lastWeekData = generateWeeklyData(allDonations, true);
+
+      // Generate weekly data for this week (cash donations only)
+      const cashDonationsByDay = generateWeeklyData(cashDonationsArray, false);
+
+      // Generate weekly data for this week (online donations only)
+      const onlineDonationsByDay = generateWeeklyData(
+        onlineDonationsArray,
+        false
+      );
+
+      setDonationStats({
+        totalDonated,
+        cashDonated,
+        onlineDonated,
+        weeklyData,
+        lastWeekData,
+        cashDonationsByDay,
+        onlineDonationsByDay,
+      });
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching donation data:", error);
+      setLoading(false);
+    }
+  };
 
   // Extract donation date from various possible fields
   const extractDonationDate = (donation) => {

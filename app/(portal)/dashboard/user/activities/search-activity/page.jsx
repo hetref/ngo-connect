@@ -2,7 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { Search, Calendar, MapPin, Star, Clock } from "lucide-react";
+import {
+  Search,
+  Calendar,
+  MapPin,
+  Star,
+  Clock,
+  ArrowRightIcon,
+  EyeIcon,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -347,7 +355,7 @@ export default function SearchActivitiesPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
                 <SelectValue placeholder="Category" />
@@ -392,11 +400,11 @@ export default function SearchActivitiesPage() {
                 className="w-full"
               />
             </div>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Search Results</CardTitle>
         </CardHeader>
@@ -466,11 +474,11 @@ export default function SearchActivitiesPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Card>
         <CardHeader>
-          <CardTitle>All Activities</CardTitle>
+          <CardTitle>All Upcoming Activities</CardTitle>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -516,10 +524,17 @@ export default function SearchActivitiesPage() {
                     )}
                     <Link
                       size="sm"
-                      className="bg-[#1CAC78] hover:bg-[#158f63] p-3 rounded-lg text-white"
+                      className="bg-[#1CAC78] hover:bg-[#158f63] p-2 rounded-lg text-white"
                       href={`/dashboard/user/activities/${activity.id}`}
                     >
-                      View Activity
+                      View Activity <EyeIcon className="inline ml-1" />
+                    </Link>
+                    <Link
+                      size="sm"
+                      className="bg-[#1CAC78] hover:bg-[#158f63] p-2 rounded-lg text-white"
+                      href={`/opt-in-participant/${activity.ngoId}/${activity.id}`}
+                    >
+                      Register <ArrowRightIcon className="inline ml-1" />
                     </Link>
                   </div>
                 </div>
@@ -532,12 +547,6 @@ export default function SearchActivitiesPage() {
           )}
         </CardContent>
       </Card>
-
-      <div className="text-center">
-        <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
-          Join an Event Now!
-        </Button>
-      </div>
     </motion.div>
   );
 }

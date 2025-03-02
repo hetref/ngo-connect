@@ -52,12 +52,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Checkbox } from "@/components/ui/checkbox";
 import toast from "react-hot-toast";
+import { auth } from "@/lib/firebase";
 
 export function ResDonationTable() {
-  // Get user and NGO information from auth context
-  const { user, profile } = useAuth();
-  const ngoId = profile?.ngoId || user?.uid || null;
-  const userId = user?.uid || null;
+  // State for user data
+  const [userData, setUserData] = useState(null);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("All");
@@ -133,6 +132,60 @@ export function ResDonationTable() {
   );
 
   useEffect(() => {
+    // First fetch user data to determine the correct NGO ID
+    const fetchUserData = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log("No user found");
+          setLoading(false);
+          setError("User not authenticated");
+          return;
+        }
+
+        // Get user document to check role and type
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (!userDoc.exists()) {
+          console.log("User document not found");
+          setLoading(false);
+          setError("User document not found");
+          return;
+        }
+
+        const userDataFromFirestore = userDoc.data();
+        setUserData(userDataFromFirestore);
+
+        // Now that we have user data, set up the donation listeners
+        setupDonationListeners(userDataFromFirestore);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setLoading(false);
+        setError("Error fetching user data");
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Set up donation listeners with the appropriate NGO ID
+  const setupDonationListeners = (userDataFromFirestore) => {
+    // Determine which NGO ID to use based on user type and role
+    let ngoId;
+    const userId = auth.currentUser.uid;
+
+    if (userDataFromFirestore.type === "ngo") {
+      if (userDataFromFirestore.role === "admin") {
+        // For NGO admin, use their own ID
+        ngoId = userId;
+      } else if (userDataFromFirestore.role === "member") {
+        // For NGO member, use the ngoId from their user data
+        ngoId = userDataFromFirestore.ngoId;
+      }
+    } else {
+      // For other user types, use their own ID (fallback)
+      ngoId = userId;
+    }
+
     if (!ngoId) {
       console.log("No NGO ID found");
       setLoading(false);
@@ -153,7 +206,7 @@ export function ResDonationTable() {
       if (approvalsUnsubscribe) approvalsUnsubscribe();
       unsubscribers.forEach((unsub) => unsub());
     };
-  }, [ngoId, userId]);
+  };
 
   // Set up listener for completed resource donations
   const setupCompletedDonationsListener = (ngoId, userId) => {

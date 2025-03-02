@@ -1,67 +1,360 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { motion } from "framer-motion"
-import { Search, Filter, ArrowDown } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
-import { Badge } from "@/components/ui/badge"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { motion } from "framer-motion";
+import { Download, FileText, BarChart, MessageCircle } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
+import { useState, useEffect } from "react";
+import { db, auth } from "@/lib/firebase"; // Import Firebase
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
+import Link from "next/link";
 
-// Mock data for demonstration
-const donationRequests = [
-  {
-    id: 1,
-    ngoName: "Education for All",
-    logo: "/placeholder.svg?height=50&width=50",
-    title: "Help Build a School in Rural India",
-    description: "Support our mission to bring quality education to underprivileged children in rural areas.",
-    raised: 50000,
-    goal: 100000,
-    daysLeft: 30,
-    urgency: "Ongoing",
-  },
-  {
-    id: 2,
-    ngoName: "Green Earth Initiative",
-    logo: "/placeholder.svg?height=50&width=50",
-    title: "Plant 10,000 Trees in Urban Areas",
-    description: "Join our efforts to increase green cover and combat air pollution in cities.",
-    raised: 75000,
-    goal: 150000,
-    daysLeft: 15,
-    urgency: "Urgent",
-  },
-  {
-    id: 3,
-    ngoName: "Health for All Foundation",
-    logo: "/placeholder.svg?height=50&width=50",
-    title: "Provide Medical Supplies to Rural Clinics",
-    description: "Help us equip rural health clinics with essential medical supplies and equipment.",
-    raised: 30000,
-    goal: 80000,
-    daysLeft: 45,
-    urgency: "Ongoing",
-  },
-]
+export default function UserDonatePage() {
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [donationOverview, setDonationOverview] = useState({
+    totalDonations: 0,
+    sponsoredEvents: 0,
+    upcomingRecurring: 0,
+  });
+  const [recentDonations, setRecentDonations] = useState([]);
+  const [donorInfo, setDonorInfo] = useState({
+    name: "",
+    email: "",
+  });
+  const [loading, setLoading] = useState(true);
 
-export default function DonationRequestsPage() {
-  const [searchTerm, setSearchTerm] = useState("")
-  const [category, setCategory] = useState("")
-  const [urgency, setUrgency] = useState("")
-  const [location, setLocation] = useState("")
-  const [amountRange, setAmountRange] = useState([0, 200000])
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const user = auth.currentUser;
 
-  const scrollToRequests = () => {
-    const requestsSection = document.getElementById("donation-requests")
-    if (requestsSection) {
-      requestsSection.scrollIntoView({ behavior: "smooth" })
+        if (!user) {
+          console.error("No user logged in");
+          setLoading(false);
+          return;
+        }
+
+        const userId = user.uid;
+
+        // Fetch user profile data
+        const userRef = doc(db, "users", userId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+
+          // Set donor info
+          setDonorInfo({
+            name: userData.name || userData.displayName || "",
+            email: userData.email || user.email || "",
+          });
+
+          // Set total donations
+          setDonationOverview((prev) => ({
+            ...prev,
+            totalDonations: userData.totalDonated || 0,
+          }));
+        }
+
+        // Fetch donation count (to how many NGOs)
+        const donateToRef = collection(db, "users", userId, "donatedTo");
+        const donateToSnap = await getDocs(donateToRef);
+        const uniqueNgos = new Set();
+
+        donateToSnap.forEach((doc) => {
+          uniqueNgos.add(doc.id);
+        });
+
+        setDonationOverview((prev) => ({
+          ...prev,
+          sponsoredEvents: uniqueNgos.size,
+        }));
+
+        // Get current date information for fetching current month donations
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear().toString();
+        const currentMonth = currentDate.getMonth().toString(); // 0-indexed months
+        console.log(currentMonth, currentYear);
+        // Fetch recent donations
+        const recentDonationsArray = [];
+
+        for (const ngoId of uniqueNgos) {
+          // Fetch NGO name
+          const ngoRef = doc(db, "ngo", ngoId);
+          const ngoSnap = await getDoc(ngoRef);
+          const ngoName = ngoSnap.exists()
+            ? ngoSnap.data().ngoName
+            : "Unknown NGO";
+
+          // Fetch donations for this NGO
+          console.log(userId);
+          const donationsPath = `users/${userId}/${currentYear}/${currentMonth}/${ngoId}`;
+          const donationsRef = collection(db, donationsPath);
+          const donationsSnap = await getDocs(donationsRef);
+
+          donationsSnap.forEach((donationDoc) => {
+            const donationData = donationDoc.data();
+            recentDonationsArray.push({
+              id: donationDoc.id,
+              ngo: ngoName,
+              amount: donationData.amount || 0,
+              date: donationData.donatedOn
+                ? new Date(donationData.donatedOn.seconds * 1000)
+                    .toISOString()
+                    .split("T")[0]
+                : "",
+              method: donationData.type || "Unknown",
+              status: "Completed", // Assuming all stored donations are completed
+              ngoId: ngoId,
+            });
+          });
+        }
+
+        // Sort by date (newest first) and set state
+        recentDonationsArray.sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
+        setRecentDonations(recentDonationsArray);
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Function to create a printable window with the tax receipt
+  const generateTaxReceipt = () => {
+    setIsGenerating(true);
+
+    try {
+      // Get completed donations
+      const completedDonations = recentDonations.filter(
+        (d) => d.status === "Completed"
+      );
+
+      // Calculate total amount
+      const totalAmount = completedDonations.reduce(
+        (sum, d) => sum + d.amount,
+        0
+      );
+
+      // Create receipt number
+      const receiptNumber = `R-${Math.floor(Math.random() * 10000)}-${new Date().getFullYear()}`;
+
+      // Generate receipt date
+      const receiptDate = new Date().toISOString().split("T")[0];
+
+      // Create HTML content for the receipt
+      let receiptHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Tax Receipt for Donations</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { color: #1CAC78; text-align: center; font-size: 24px; margin-bottom: 30px; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+            .info-line { margin: 5px 0; font-size: 12px; }
+            table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+            th { background-color: #1CAC78; color: white; text-align: left; padding: 8px; }
+            td { border: 1px solid #ddd; padding: 8px; }
+            tr:nth-child(even) { background-color: #f2f2f2; }
+            .total { font-weight: bold; margin: 20px 0; }
+            .disclaimer { font-size: 10px; margin-top: 30px; font-style: italic; }
+            .signature { text-align: right; margin-top: 50px; }
+            @media print {
+              button { display: none; }
+              body { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">Tax Receipt for Donations</div>
+          
+          <div class="section">
+            <div class="section-title">Donor Details:</div>
+            <div class="info-line">Name: ${donorInfo.name}</div>
+            <div class="info-line">Email: ${donorInfo.email}</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Receipt Details:</div>
+            <div class="info-line">Receipt Date: ${receiptDate}</div>
+            <div class="info-line">Receipt Number: ${receiptNumber}</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Donation Details:</div>
+            <table>
+              <thead>
+                <tr>
+                  <th>Organization</th>
+                  <th>Amount</th>
+                  <th>Date</th>
+                  <th>Payment Method</th>
+                  <th>Deduction Type</th>
+                </tr>
+              </thead>
+              <tbody>
+      `;
+
+      // Add rows for donations
+      completedDonations.forEach((donation) => {
+        receiptHTML += `
+          <tr>
+            <td>${donation.ngo}</td>
+            <td>₹${donation.amount}</td>
+            <td>${donation.date}</td>
+            <td>${donation.method}</td>
+            <td>80G</td>
+          </tr>
+        `;
+      });
+
+      // Complete the HTML
+      receiptHTML += `
+              </tbody>
+            </table>
+            
+            <div class="total">Total Donations: ₹${totalAmount}</div>
+          </div>
+          
+          <div class="disclaimer">
+            This receipt is electronically generated and is valid for income tax purposes under Section 80G of the Income Tax Act, 1961.
+          </div>
+          
+          <div class="signature">
+            Authorized Signatory
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <button onclick="window.print()">Print Receipt</button>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Open in a new window
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(receiptHTML);
+        printWindow.document.close();
+      } else {
+        alert(
+          "Please allow popups for this website to view and print tax receipts."
+        );
+      }
+    } catch (error) {
+      console.error("Error generating tax receipt:", error);
+      alert("Failed to generate tax receipt. Please try again later.");
+    } finally {
+      setIsGenerating(false);
     }
-  }
+  };
+
+  // Function to open individual receipt in new window
+  const viewIndividualReceipt = (donation) => {
+    try {
+      // Create receipt number
+      const receiptNumber = `R-${donation.id}-${new Date().getFullYear()}`;
+
+      // Create HTML content for the individual receipt
+      let receiptHTML = `
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <title>Donation Receipt: ${donation.ngo}</title>
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            .header { color: #1CAC78; text-align: center; font-size: 24px; margin-bottom: 30px; }
+            .section { margin-bottom: 20px; }
+            .section-title { font-size: 16px; font-weight: bold; margin-bottom: 10px; }
+            .info-line { margin: 5px 0; font-size: 12px; }
+            .disclaimer { font-size: 10px; margin-top: 30px; font-style: italic; }
+            .signature { text-align: right; margin-top: 50px; }
+            @media print {
+              button { display: none; }
+              body { margin: 0; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header">Donation Receipt: ${donation.ngo}</div>
+          
+          <div class="section">
+            <div class="section-title">Donor Details:</div>
+            <div class="info-line">Name: ${donorInfo.name}</div>
+            <div class="info-line">Email: ${donorInfo.email}</div>
+          </div>
+          
+          <div class="section">
+            <div class="section-title">Donation Details:</div>
+            <div class="info-line">Organization: ${donation.ngo}</div>
+            <div class="info-line">Amount: ₹${donation.amount}</div>
+            <div class="info-line">Date: ${donation.date}</div>
+            <div class="info-line">Payment Method: ${donation.method}</div>
+            <div class="info-line">Status: ${donation.status}</div>
+            <div class="info-line">Receipt Number: ${receiptNumber}</div>
+          </div>
+          
+          <div class="disclaimer">
+            This receipt is electronically generated and is valid for income tax purposes under Section 80G of the Income Tax Act, 1961.
+          </div>
+          
+          <div style="text-align: center; margin-top: 30px;">
+            <button onclick="window.print()">Print Receipt</button>
+          </div>
+        </body>
+        </html>
+      `;
+
+      // Open in a new window
+      const printWindow = window.open("", "_blank");
+      if (printWindow) {
+        printWindow.document.write(receiptHTML);
+        printWindow.document.close();
+      } else {
+        alert(
+          "Please allow popups for this website to view and print tax receipts."
+        );
+      }
+    } catch (error) {
+      console.error("Error generating individual receipt:", error);
+      alert("Failed to generate receipt. Please try again later.");
+    }
+  };
 
   return (
     <motion.div
@@ -70,176 +363,112 @@ export default function DonationRequestsPage() {
       transition={{ duration: 0.5 }}
       className="container mx-auto p-4 space-y-8"
     >
-      {/* Header Section */}
-      <section className="text-center py-12">
-        <h1 className="text-4xl font-bold mb-4">Support a Cause & Make a Difference!</h1>
-        <p className="text-xl mb-8">Browse donation requests from verified NGOs and contribute to meaningful causes.</p>
-        <Button size="lg" onClick={scrollToRequests} className="bg-[#1CAC78] hover:bg-[#158f63]">
-          Start Donating
-          <ArrowDown className="ml-2 h-4 w-4" />
-        </Button>
-      </section>
+      <h1 className="text-3xl font-bold mb-8">Donations</h1>
 
-      {/* Filters & Search Bar */}
-      <section className="bg-gray-100 p-6 rounded-lg">
-        <div className="flex flex-col md:flex-row gap-4 mb-4">
-          <div className="flex-grow">
-            <Input
-              placeholder="Search donation requests..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full"
-            />
-          </div>
-          <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
-            <Search className="mr-2 h-4 w-4" /> Search
-          </Button>
+      {loading ? (
+        <div className="text-center py-8">
+          <p>Loading your donation data...</p>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <Select value={category} onValueChange={setCategory}>
-            <SelectTrigger>
-              <SelectValue placeholder="Category" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="education">Education</SelectItem>
-              <SelectItem value="health">Health</SelectItem>
-              <SelectItem value="environment">Environment</SelectItem>
-              <SelectItem value="disaster">Disaster Relief</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={urgency} onValueChange={setUrgency}>
-            <SelectTrigger>
-              <SelectValue placeholder="Urgency Level" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="immediate">Immediate</SelectItem>
-              <SelectItem value="ongoing">Ongoing</SelectItem>
-              <SelectItem value="future">Future Needs</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={location} onValueChange={setLocation}>
-            <SelectTrigger>
-              <SelectValue placeholder="Location" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="north">North India</SelectItem>
-              <SelectItem value="south">South India</SelectItem>
-              <SelectItem value="east">East India</SelectItem>
-              <SelectItem value="west">West India</SelectItem>
-            </SelectContent>
-          </Select>
-          <div className="space-y-2">
-            <label className="text-sm font-medium">Amount Needed Range</label>
-            <Slider value={amountRange} onValueChange={setAmountRange} max={200000} step={1000} className="w-full" />
-            <div className="flex justify-between text-sm text-gray-500">
-              <span>₹{amountRange[0]}</span>
-              <span>₹{amountRange[1]}</span>
-            </div>
-          </div>
-        </div>
-        <Button className="mt-4 bg-[#1CAC78] hover:bg-[#158f63]">
-          <Filter className="mr-2 h-4 w-4" /> Find Urgent Causes!
-        </Button>
-      </section>
-
-      {/* Donation Requests List */}
-      <section id="donation-requests" className="space-y-6">
-        <h2 className="text-2xl font-bold">Donation Requests</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {donationRequests.map((request) => (
-            <Card key={request.id}>
-              <CardHeader>
-                <div className="flex items-center space-x-4">
-                  <img
-                    src={request.logo || "/placeholder.svg"}
-                    alt={`${request.ngoName} logo`}
-                    className="w-12 h-12 rounded-full"
-                  />
-                  <div>
-                    <CardTitle className="text-lg">{request.ngoName}</CardTitle>
-                    <Badge variant={request.urgency === "Urgent" ? "destructive" : "secondary"}>
-                      {request.urgency}
-                    </Badge>
-                  </div>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Donations Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    ₹{donationOverview.totalDonations}
+                  </h3>
+                  <p className="text-gray-500">Total Donations Made</p>
                 </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    {donationOverview.sponsoredEvents}
+                  </h3>
+                  <p className="text-gray-500">Total NGOs Supported</p>
+                </div>
+                {/* <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    ₹{donationOverview.upcomingRecurring}
+                  </h3>
+                  <p className="text-gray-500">Upcoming Recurring Donations</p>
+                </div> */}
+              </div>
+              <div className="mt-4 text-center">
+                <Button
+                  variant="outline"
+                  onClick={generateTaxReceipt}
+                  disabled={isGenerating || recentDonations.length === 0}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isGenerating ? "Generating..." : "Download Tax Receipt"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {recentDonations.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Donations</CardTitle>
               </CardHeader>
               <CardContent>
-                <h3 className="text-xl font-semibold mb-2">{request.title}</h3>
-                <p className="text-gray-600 mb-4">{request.description}</p>
-                <div className="space-y-2">
-                  <Progress value={(request.raised / request.goal) * 100} />
-                  <div className="flex justify-between text-sm">
-                    <span>₹{request.raised} raised</span>
-                    <span>₹{request.goal} goal</span>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 mt-2">{request.daysLeft} days left</p>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>NGO</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Payment Method</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentDonations.map((donation) => (
+                      <TableRow key={`${donation.ngoId}-${donation.id}`}>
+                        <TableCell>{donation.ngo}</TableCell>
+                        <TableCell>₹{donation.amount}</TableCell>
+                        <TableCell>{donation.date}</TableCell>
+                        <TableCell>{donation.method}</TableCell>
+                        <TableCell>
+                          <Badge variant="default">{donation.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => viewIndividualReceipt(donation)}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            View Receipt
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </CardContent>
-              <CardFooter>
-                <Button className="w-full bg-[#1CAC78] hover:bg-[#158f63]">Donate Now</Button>
-              </CardFooter>
             </Card>
-          ))}
-        </div>
-      </section>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p>You haven't made any donations yet.</p>
+              </CardContent>
+            </Card>
+          )}
 
-      {/* Featured & Urgent Causes Section */}
-      <section className="space-y-6">
-        <h2 className="text-2xl font-bold">Featured & Urgent Causes</h2>
-        <Tabs defaultValue="urgent">
-          <TabsList>
-            <TabsTrigger value="urgent">Urgent Causes</TabsTrigger>
-            <TabsTrigger value="trending">Trending Campaigns</TabsTrigger>
-          </TabsList>
-          <TabsContent value="urgent">
-            {/* Add urgent causes content here */}
-            <p>Urgent causes will be displayed here.</p>
-          </TabsContent>
-          <TabsContent value="trending">
-            {/* Add trending campaigns content here */}
-            <p>Trending campaigns will be displayed here.</p>
-          </TabsContent>
-        </Tabs>
-      </section>
-
-      {/* Impact Stories & Testimonials */}
-      <section className="space-y-6">
-        <h2 className="text-2xl font-bold">Impact Stories & Testimonials</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Donor Success Story</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                "Thanks to the generous donations, we were able to provide clean water to an entire village. The impact
-                has been life-changing for the community." - John Doe, Water for All NGO
-              </p>
-            </CardContent>
-          </Card>
-          <Card>
-            <CardHeader>
-              <CardTitle>NGO Testimonial</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p>
-                "The support we received helped us set up a mobile health clinic that now serves over 1000 patients
-                monthly in remote areas." - Dr. Jane Smith, Healthcare on Wheels
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-      </section>
-
-      {/* Call to Action */}
-      <section className="text-center py-12">
-        <h2 className="text-3xl font-bold mb-4">Start Your Impact – Donate Today!</h2>
-        <p className="text-xl mb-8">Looking for a Specific Cause? Use Filters Above!</p>
-        <Button size="lg" onClick={scrollToRequests} className="bg-[#1CAC78] hover:bg-[#158f63]">
-          Browse Donation Requests
-        </Button>
-      </section>
+          <div className="text-center space-x-4">
+            <Link href="/ngo">
+              <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+                Donate to a Cause Now!
+              </Button>
+            </Link>
+          </div>
+        </>
+      )}
     </motion.div>
-  )
+  );
 }
-

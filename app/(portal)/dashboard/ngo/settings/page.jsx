@@ -5,21 +5,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ProfileInformation from "@/components/profile/ngo/ProfileInformation";
 import VerificationInformation from "@/components/profile/ngo/VerificationInformation";
 import DonationInformation from "@/components/profile/ngo/DonationInformation";
-import NotificationInformation from "@/components/profile/ngo/NotificationInformation";
 import SecurityInformation from "@/components/profile/ngo/SecurityInformation";
+import MemberProfile from "@/components/profile/ngo/MemberProfile";
 import { auth, db } from "@/lib/firebase";
 import { Button } from "@/components/ui/button";
-import { doc, onSnapshot, setDoc, updateDoc } from "firebase/firestore";
+import { doc, onSnapshot, setDoc, updateDoc, getDoc } from "firebase/firestore";
 import { useState, useEffect } from "react";
 import { useReadContract } from "wagmi";
 import { NGOABI } from "@/constants/contract";
 import { formatEther } from "viem";
+import { onAuthStateChanged } from "firebase/auth";
+import { useRouter } from "next/navigation";
 
 const NGOSettingsPage = () => {
-  const userId = auth.currentUser.uid;
+  const router = useRouter();
+  const [userId, setUserId] = useState(null);
   const [ngoProfile, setNgoProfile] = useState(null);
   const [approvalStatus, setApprovalStatus] = useState(null);
   const [verificationStatus, setVerificationStatus] = useState(null);
+  const [userType, setUserType] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [ngoId, setNgoId] = useState(null);
 
   const {
     data: ngoBalance,
@@ -32,25 +39,48 @@ const NGOSettingsPage = () => {
     enabled: Boolean(ngoProfile?.donationsData?.ngoOwnerAddContract),
   });
 
-  console.log(
-    "NGO Contract Address:",
-    ngoProfile?.donationsData?.ngoOwnerAddContract
-  );
-  console.log("NGO Balance:", ngoBalance);
-
-  // const [darkMode, setDarkMode] = useState(false);
-
-  // Effect to handle dark mode
-  // useEffect(() => {
-  //   if (darkMode) {
-  //     document.documentElement.classList.add("dark");
-  //   } else {
-  //     document.documentElement.classList.remove("dark");
-  //   }
-  // }, [darkMode]);
-
-  // Effect to fetch NGO profile and verification status
+  // Effect to check user authentication and type/role
   useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser) {
+        setUserId(currentUser.uid);
+
+        // Get user data to check type and role
+        try {
+          const userDocRef = doc(db, "users", currentUser.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            setUserType(userData.type);
+            setUserRole(userData.role);
+
+            // If user is NGO member, set the NGO ID
+            if (userData.type === "ngo" && userData.role === "member") {
+              setNgoId(userData.ngoId);
+            } else if (userData.type === "ngo" && userData.role === "admin") {
+              setNgoId(currentUser.uid);
+            }
+          }
+
+          setIsLoading(false);
+        } catch (error) {
+          console.error("Error fetching user data:", error);
+          setIsLoading(false);
+        }
+      } else {
+        // No user is signed in, redirect to login
+        router.replace("/login");
+      }
+    });
+
+    return () => unsubscribe();
+  }, [router]);
+
+  // Effect to fetch NGO profile and verification status (only for NGO admins)
+  useEffect(() => {
+    if (!userId || userType !== "ngo" || userRole !== "admin") return;
+
     const ngoDocRef = doc(db, "ngo", userId);
     const approvalDocRef = doc(db, "approvals", userId);
 
@@ -81,7 +111,7 @@ const NGOSettingsPage = () => {
       unsubscribeNgo();
       unsubscribeApproval();
     };
-  }, [userId]);
+  }, [userId, userType, userRole]);
 
   const handleVerifyProfile = async () => {
     try {
@@ -124,13 +154,26 @@ const NGOSettingsPage = () => {
           isVerified: "pending",
         });
       }
-      // Just
     } catch (error) {
       console.error("Error requesting editing:", error);
       alert("Failed to switch to editing mode. Please try again.");
     }
   };
 
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4">
+        <p>Loading user data...</p>
+      </div>
+    );
+  }
+
+  // Render the member profile if user is an NGO member
+  if (userType === "ngo" && userRole === "member") {
+    return <MemberProfile />;
+  }
+
+  // Render the NGO admin settings page
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -186,10 +229,7 @@ const NGOSettingsPage = () => {
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="verification">Verification</TabsTrigger>
-          {/* <TabsTrigger value="team">Team</TabsTrigger>
-          <TabsTrigger value="events">Events</TabsTrigger> */}
           <TabsTrigger value="bank-info">Bank Info</TabsTrigger>
-          {/* <TabsTrigger value="notifications">Notifications</TabsTrigger> */}
           <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
@@ -209,87 +249,6 @@ const NGOSettingsPage = () => {
           />
         </TabsContent>
 
-        {/* <TabsContent value="team">
-          <Card>
-            <CardHeader>
-              <CardTitle>Team Management</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Email</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {teamMembers.map((member) => (
-                    <TableRow key={member.id}>
-                      <TableCell>{member.name}</TableCell>
-                      <TableCell>{member.role}</TableCell>
-                      <TableCell>{member.email}</TableCell>
-                      <TableCell>
-                        <Button variant="outline" size="sm">
-                          Edit
-                        </Button>
-                        <Button variant="outline" size="sm" className="ml-2">
-                          Remove
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-              <Button className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]">
-                Invite New Member
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="events">
-          <Card>
-            <CardHeader>
-              <CardTitle>Event & Campaign Preferences</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Default Event Categories</Label>
-                <Select className="border-gray-300">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select categories" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="environment">Environment</SelectItem>
-                    <SelectItem value="education">Education</SelectItem>
-                    <SelectItem value="health">Health</SelectItem>
-                    <SelectItem value="community">Community</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-2">
-                <Label>Donation Campaign Goals</Label>
-                <Input
-                  type="number"
-                  placeholder="Set default goal amount"
-                  className="border-gray-300"
-                />
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch id="event-privacy" className="border-gray-300" />
-                <Label htmlFor="event-privacy">
-                  Make events private by default
-                </Label>
-              </div>
-              <Button className="w-full md:w-auto bg-[#1CAC78] hover:bg-[#158f63]">
-                Save Event Preferences
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent> */}
-
         <TabsContent value="bank-info">
           <DonationInformation
             ngoId={userId}
@@ -297,10 +256,6 @@ const NGOSettingsPage = () => {
             verificationStatus={verificationStatus}
           />
         </TabsContent>
-
-        {/* <TabsContent value="notifications">
-          <NotificationInformation />
-        </TabsContent> */}
 
         <TabsContent value="security">
           <SecurityInformation

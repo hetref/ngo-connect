@@ -18,7 +18,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Trash2, Edit, FileDown } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -38,6 +38,7 @@ import {
   query,
   where,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
@@ -58,6 +59,7 @@ export default function NGOMembersPage() {
   const [selectedMember, setSelectedMember] = useState(null);
   const [open, setOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
   const [user, setUser] = useState(null);
   const [ngoData, setNgoData] = useState({});
   const [ngoId, setNgoId] = useState(null);
@@ -65,6 +67,7 @@ export default function NGOMembersPage() {
   const [accessGranted, setAccessGranted] = useState(false);
   const [initialized, setInitialized] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [updatedAccessLevel, setUpdatedAccessLevel] = useState("");
   const router = useRouter();
 
   // Monitor authentication state
@@ -392,6 +395,7 @@ export default function NGOMembersPage() {
       setIsSubmitting(false);
     }
   };
+
   const deleteMember = async (memberId) => {
     if (!ngoId) return;
 
@@ -469,6 +473,106 @@ export default function NGOMembersPage() {
       toast.error("Error deleting member");
     }
   };
+
+  // New function to update member access level
+  const updateMemberAccessLevel = async () => {
+    if (!selectedMember || !updatedAccessLevel) {
+      toast.error("Please select an access level");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // Update member document in NGO collection
+      const memberRef = doc(db, "ngo", ngoId, "members", selectedMember.id);
+      await updateDoc(memberRef, {
+        accessLevel: updatedAccessLevel,
+      });
+
+      // If the member has a userId, also update the user document
+      if (selectedMember.userId) {
+        const userRef = doc(db, "users", selectedMember.userId);
+        const userDoc = await getDoc(userRef);
+
+        if (userDoc.exists()) {
+          await updateDoc(userRef, {
+            accessLevel: updatedAccessLevel,
+          });
+          console.log(`Updated accessLevel for user ${selectedMember.userId}`);
+        }
+      }
+
+      toast.success("Access level updated successfully!");
+      setEditOpen(false);
+    } catch (error) {
+      console.error("Error updating access level:", error);
+      toast.error("Error updating access level: " + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Function to export members data to CSV
+  const exportToCSV = () => {
+    // Define the columns for the CSV
+    const csvColumns = [
+      "Name",
+      "Email",
+      "Phone",
+      "Access Level",
+      "Status",
+      "Created Date",
+      "Member ID",
+    ];
+
+    // Format the data rows
+    const csvData = members.map((member) => [
+      member.name || "",
+      member.email || "",
+      member.phone || "",
+      member.accessLevel === "level1" ? "Level 1" : "Level 2",
+      member.status || "",
+      member.createdAt ? new Date(member.createdAt).toLocaleDateString() : "",
+      member.id || "",
+    ]);
+
+    // Add header row
+    csvData.unshift(csvColumns);
+
+    // Generate CSV content
+    const csvContent = csvData
+      .map((row) =>
+        row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")
+      )
+      .join("\n");
+
+    // Create a blob with the CSV data
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+
+    // Create a link element and trigger download
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+
+    // Set filename with NGO name and date
+    const date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+    const filename = `${ngoData.name ? ngoData.name.replace(/\s+/g, "_") : "ngo"}_members_${date}.csv`;
+
+    link.setAttribute("href", url);
+    link.setAttribute("download", filename);
+    link.style.visibility = "hidden";
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const openEditDialog = (member) => {
+    setSelectedMember(member);
+    setUpdatedAccessLevel(member.accessLevel); // Set initial value to current access level
+    setEditOpen(true);
+  };
+
   const filteredMembers = members.filter(
     (member) =>
       member.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -490,97 +594,121 @@ export default function NGOMembersPage() {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle>Member Management</CardTitle>
-          <CardDescription>Add and manage organization members</CardDescription>
-        </CardHeader>
-
-        <CardContent>
-          {/* Add Member Dialog */}
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
-              <Button className="mb-4">Add Member</Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Add New Member</DialogTitle>
-                <DialogDescription>
-                  Fill in the details to add a new member to your organization.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label>
-                    Full Name <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    value={newMember.name}
-                    onChange={(e) =>
-                      setNewMember({ ...newMember, name: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={newMember.email}
-                    onChange={(e) =>
-                      setNewMember({ ...newMember, email: e.target.value })
-                    }
-                    required
-                  />
-                </div>
-                <div>
-                  <Label>
-                    Mobile No. <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    type="tel"
-                    value={newMember.phone}
-                    onChange={(e) =>
-                      setNewMember({ ...newMember, phone: e.target.value })
-                    }
-                    required
-                    placeholder="e.g: 903483445"
-                  />
-                </div>
-                <div>
-                  <Label>
-                    Access Level <span className="text-red-500">*</span>
-                  </Label>
-                  <div>
-                    <select
-                      className="w-full p-2 rounded-lg border border-gray-300"
-                      value={newMember.access}
-                      onChange={(e) =>
-                        setNewMember({ ...newMember, access: e.target.value })
-                      }
-                      required
-                    >
-                      <option value="level1">
-                        Level 1 (Activity Management, Inventory Management)
-                      </option>
-                      <option value="level2">Level 2 (All Features)</option>
-                    </select>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Member Management</CardTitle>
+              <CardDescription>
+                Add and manage organization members
+              </CardDescription>
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                className="mb-4"
+                onClick={exportToCSV}
+                disabled={members.length === 0}
+              >
+                <FileDown className="mr-2 h-4 w-4" />
+                Download CSV
+              </Button>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button className="mb-4">Add Member</Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Member</DialogTitle>
+                    <DialogDescription>
+                      Fill in the details to add a new member to your
+                      organization.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div>
+                      <Label>
+                        Full Name <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        value={newMember.name}
+                        onChange={(e) =>
+                          setNewMember({ ...newMember, name: e.target.value })
+                        }
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label>Email</Label>
+                      <Input
+                        type="email"
+                        value={newMember.email}
+                        onChange={(e) =>
+                          setNewMember({
+                            ...newMember,
+                            email: e.target.value,
+                          })
+                        }
+                        required
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        Mobile No. <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        type="tel"
+                        value={newMember.phone}
+                        onChange={(e) =>
+                          setNewMember({
+                            ...newMember,
+                            phone: e.target.value,
+                          })
+                        }
+                        required
+                        placeholder="e.g: 903483445"
+                      />
+                    </div>
+                    <div>
+                      <Label>
+                        Access Level <span className="text-red-500">*</span>
+                      </Label>
+                      <div>
+                        <select
+                          className="w-full p-2 rounded-lg border border-gray-300"
+                          value={newMember.access}
+                          onChange={(e) =>
+                            setNewMember({
+                              ...newMember,
+                              access: e.target.value,
+                            })
+                          }
+                          required
+                        >
+                          <option value="level1">
+                            Level 1 (Activity Management, Inventory Management)
+                          </option>
+                          <option value="level2">Level 2 (All Features)</option>
+                        </select>
+                      </div>
+                    </div>
+                    <div className="flex justify-end space-x-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => setOpen(false)}
+                        disabled={isSubmitting}
+                      >
+                        Cancel
+                      </Button>
+                      <Button onClick={addMember} disabled={isSubmitting}>
+                        {isSubmitting ? "Adding..." : "Add Member"}
+                      </Button>
+                    </div>
                   </div>
-                </div>
-                <div className="flex justify-end space-x-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setOpen(false)}
-                    disabled={isSubmitting}
-                  >
-                    Cancel
-                  </Button>
-                  <Button onClick={addMember} disabled={isSubmitting}>
-                    {isSubmitting ? "Adding..." : "Add Member"}
-                  </Button>
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-
+                </DialogContent>
+              </Dialog>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
           <Input
             placeholder="Search members by name, email or phone..."
             className="mb-4"
@@ -632,6 +760,14 @@ export default function NGOMembersPage() {
                           title="View Details"
                         >
                           <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => openEditDialog(member)}
+                          title="Edit Access Level"
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
                         <Button
                           variant="ghost"
@@ -723,6 +859,66 @@ export default function NGOMembersPage() {
               )}
               <div className="flex justify-end">
                 <Button onClick={() => setViewOpen(false)}>Close</Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Access Level Modal */}
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Access Level</DialogTitle>
+            <DialogDescription>
+              Update the access level for {selectedMember?.name}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedMember && (
+            <div className="space-y-4">
+              <div>
+                <Label>Current Access Level</Label>
+                <div className="mt-1 mb-4">
+                  {selectedMember.accessLevel === "level1"
+                    ? "Level 1 (Activity Management, Inventory Management)"
+                    : "Level 2 (All Features)"}
+                </div>
+              </div>
+              <div>
+                <Label>
+                  New Access Level <span className="text-red-500">*</span>
+                </Label>
+                <div>
+                  <select
+                    className="w-full p-2 rounded-lg border border-gray-300"
+                    value={updatedAccessLevel}
+                    onChange={(e) => setUpdatedAccessLevel(e.target.value)}
+                    required
+                  >
+                    <option value="level1">
+                      Level 1 (Activity Management, Inventory Management)
+                    </option>
+                    <option value="level2">Level 2 (All Features)</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex justify-end space-x-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditOpen(false)}
+                  disabled={isSubmitting}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={updateMemberAccessLevel}
+                  disabled={
+                    isSubmitting ||
+                    updatedAccessLevel === selectedMember.accessLevel
+                  }
+                >
+                  {isSubmitting ? "Saving..." : "Save Changes"}
+                </Button>
               </div>
             </div>
           )}

@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { collectionGroup, onSnapshot } from "firebase/firestore";
+import { collectionGroup, onSnapshot, doc, getDoc } from "firebase/firestore";
 import { db, auth } from "@/lib/firebase";
 import {
   Select,
@@ -42,151 +42,125 @@ export function DonorsTable() {
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [allDonations, setAllDonations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    // Get current year
-    const currentYear = new Date().getFullYear().toString();
-    const unsubscribes = [];
-
-    const setupRealtimeListeners = async () => {
+    // First fetch user data to determine the correct NGO ID
+    const fetchUserData = async () => {
       try {
-        setLoading(true);
-        const ngoId = auth.currentUser?.uid;
-        if (!ngoId) {
-          console.log("No NGO ID found");
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log("No user found");
           setLoading(false);
           return;
         }
 
-        console.log(
-          "Setting up real-time listeners for all donations for NGO:",
-          ngoId
-        );
+        // Get user document to check role and type
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (!userDoc.exists()) {
+          console.log("User document not found");
+          setLoading(false);
+          return;
+        }
 
-        // Define donation types to listen for
-        const donationTypes = ["cash", "crypto", "resources", "online"];
-        let allDonationsData = [];
+        const userDataFromFirestore = userDoc.data();
+        setUserData(userDataFromFirestore);
 
-        // Set up listeners for each donation type
-        donationTypes.forEach((type) => {
-          const unsubscribe = onSnapshot(
-            collectionGroup(db, type),
-            (snapshot) => {
-              let typeDonations = [];
-
-              snapshot.forEach((doc) => {
-                // Only include donations that belong to this NGO and year
-                const path = doc.ref.path;
-                if (path.includes(`donations/${ngoId}/${currentYear}`)) {
-                  typeDonations.push({
-                    id: doc.id,
-                    ...doc.data(),
-                    donationType: type.charAt(0).toUpperCase() + type.slice(1), // Capitalize first letter
-                  });
-                }
-              });
-
-              console.log(`Real-time ${type} Donations Data:`, typeDonations);
-
-              // Update all donations with this type's donations
-              allDonationsData = [
-                ...allDonationsData.filter(
-                  (d) =>
-                    d.donationType !==
-                    type.charAt(0).toUpperCase() + type.slice(1)
-                ),
-                ...typeDonations,
-              ];
-
-              // Format and update state
-              updateDonationsState(allDonationsData);
-            },
-            (error) => {
-              console.error(`Error in ${type} real-time listener:`, error);
-            }
-          );
-
-          unsubscribes.push(unsubscribe);
-        });
+        // Now that we have user data, set up the donation listeners
+        setupRealtimeListeners(userDataFromFirestore);
       } catch (error) {
-        console.error("Error setting up real-time listeners:", error);
+        console.error("Error fetching user data:", error);
         setLoading(false);
       }
     };
 
-    const updateDonationsState = (donationsData) => {
-      // Format the data to match the expected structure
-      const formattedDonations = donationsData.map((donation) => {
-        // Extract timestamp for sorting
-        const timestamp = donation.timestamp
-          ? new Date(donation.timestamp).getTime()
-          : donation.donatedOn
-            ? new Date(donation.donatedOn).getTime()
-            : 0;
+    fetchUserData();
+  }, []);
 
-        // Determine the status of the donation
-        const status = donation.status || "Completed"; // Default to "Completed" if not specified
+  // Get current year
+  const setupRealtimeListeners = async (userDataFromFirestore) => {
+    const currentYear = new Date().getFullYear().toString();
+    const unsubscribes = [];
 
-        // Format amount based on donation type
-        let formattedAmount = "N/A";
-        if (donation.donationType === "Resources") {
-          // For resources, show item name and quantity if available
-          const itemName = donation.itemName || donation.item || "";
-          const quantity = donation.quantity || "";
-          formattedAmount = itemName
-            ? quantity
-              ? `${quantity} ${itemName}`
-              : itemName
-            : "N/A";
-        } else if (donation.amount) {
-          // For monetary donations
-          formattedAmount = `₹${Number(donation.amount).toLocaleString()}`;
-        } else if (
-          donation.donationType === "Crypto" &&
-          donation.cryptoAmount
-        ) {
-          // For crypto with specific crypto amount
-          const cryptoType = donation.cryptoType || "Crypto";
-          formattedAmount = `${donation.cryptoAmount} ${cryptoType}`;
+    try {
+      setLoading(true);
+
+      // Determine which NGO ID to use based on user type and role
+      let ngoId;
+
+      if (userDataFromFirestore.type === "ngo") {
+        if (userDataFromFirestore.role === "admin") {
+          // For NGO admin, use their own ID
+          ngoId = auth.currentUser.uid;
+        } else if (userDataFromFirestore.role === "member") {
+          // For NGO member, use the ngoId from their user data
+          ngoId = userDataFromFirestore.ngoId;
         }
+      } else {
+        // For other user types, use their own ID (fallback)
+        ngoId = auth.currentUser.uid;
+      }
 
-        return {
-          id: donation.id,
-          donor: donation.name || donation.donorName || "Anonymous",
-          amount: formattedAmount,
-          date:
-            donation.donationType === "Online" && donation.timestamp
-              ? new Date(donation.timestamp).toLocaleString("en-US", {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })
-              : donation.donatedOn ||
-                (donation.timestamp
-                  ? new Date(donation.timestamp).toISOString().split("T")[0]
-                  : "N/A"),
-          status: status,
-          email: donation.email || "N/A",
-          phone: donation.phone || "N/A",
-          address: donation.address || "N/A",
-          type: donation.donationType || "Unknown",
-          rawData: donation, // Keep the raw data for the modal view
-          timestamp: timestamp, // Store timestamp for sorting
-        };
-      });
+      if (!ngoId) {
+        console.log("No NGO ID found");
+        setLoading(false);
+        return;
+      }
 
-      // Sort donations by timestamp (newest first)
-      const sortedDonations = formattedDonations.sort(
-        (a, b) => b.timestamp - a.timestamp
+      console.log(
+        "Setting up real-time listeners for all donations for NGO:",
+        ngoId
       );
 
-      setAllDonations(sortedDonations);
-      setLoading(false);
-    };
+      // Define donation types to listen for
+      const donationTypes = ["cash", "crypto", "resources", "online"];
+      let allDonationsData = [];
 
-    setupRealtimeListeners();
+      // Set up listeners for each donation type
+      donationTypes.forEach((type) => {
+        const unsubscribe = onSnapshot(
+          collectionGroup(db, type),
+          (snapshot) => {
+            let typeDonations = [];
+
+            snapshot.forEach((doc) => {
+              // Only include donations that belong to this NGO and year
+              const path = doc.ref.path;
+              if (path.includes(`donations/${ngoId}/${currentYear}`)) {
+                typeDonations.push({
+                  id: doc.id,
+                  ...doc.data(),
+                  donationType: type.charAt(0).toUpperCase() + type.slice(1), // Capitalize first letter
+                });
+              }
+            });
+
+            console.log(`Real-time ${type} Donations Data:`, typeDonations);
+
+            // Update all donations with this type's donations
+            allDonationsData = [
+              ...allDonationsData.filter(
+                (d) =>
+                  d.donationType !==
+                  type.charAt(0).toUpperCase() + type.slice(1)
+              ),
+              ...typeDonations,
+            ];
+
+            // Format and update state
+            updateDonationsState(allDonationsData);
+          },
+          (error) => {
+            console.error(`Error in ${type} real-time listener:`, error);
+          }
+        );
+
+        unsubscribes.push(unsubscribe);
+      });
+    } catch (error) {
+      console.error("Error setting up real-time listeners:", error);
+      setLoading(false);
+    }
 
     // Clean up the listeners when the component unmounts
     return () => {
@@ -197,7 +171,76 @@ export function DonorsTable() {
         }
       });
     };
-  }, []);
+  };
+
+  const updateDonationsState = (donationsData) => {
+    // Format the data to match the expected structure
+    const formattedDonations = donationsData.map((donation) => {
+      // Extract timestamp for sorting
+      const timestamp = donation.timestamp
+        ? new Date(donation.timestamp).getTime()
+        : donation.donatedOn
+          ? new Date(donation.donatedOn).getTime()
+          : 0;
+
+      // Determine the status of the donation
+      const status = donation.status || "Completed"; // Default to "Completed" if not specified
+
+      // Format amount based on donation type
+      let formattedAmount = "N/A";
+      if (donation.donationType === "Resources") {
+        // For resources, show item name and quantity if available
+        const itemName = donation.itemName || donation.item || "";
+        const quantity = donation.quantity || "";
+        formattedAmount = itemName
+          ? quantity
+            ? `${quantity} ${itemName}`
+            : itemName
+          : "N/A";
+      } else if (donation.amount) {
+        // For monetary donations
+        formattedAmount = `₹${Number(donation.amount).toLocaleString()}`;
+      } else if (donation.donationType === "Crypto" && donation.cryptoAmount) {
+        // For crypto with specific crypto amount
+        const cryptoType = donation.cryptoType || "Crypto";
+        formattedAmount = `${donation.cryptoAmount} ${cryptoType}`;
+      }
+
+      return {
+        id: donation.id,
+        donor: donation.name || donation.donorName || "Anonymous",
+        amount: formattedAmount,
+        date:
+          donation.donationType === "Online" && donation.timestamp
+            ? new Date(donation.timestamp).toLocaleString("en-US", {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+              })
+            : donation.donatedOn ||
+              (donation.timestamp
+                ? new Date(donation.timestamp).toISOString().split("T")[0]
+                : "N/A"),
+        status: status,
+        email: donation.email || "N/A",
+        phone: donation.phone || "N/A",
+        address: donation.address || "N/A",
+        type: donation.donationType || "Unknown",
+        rawData: donation, // Keep the raw data for the modal view
+        timestamp: timestamp, // Store timestamp for sorting
+      };
+    });
+
+    // Sort donations by timestamp (newest first)
+    const sortedDonations = formattedDonations.sort(
+      (a, b) => b.timestamp - a.timestamp
+    );
+
+    setAllDonations(sortedDonations);
+    setLoading(false);
+  };
 
   // Calculate donation counts by status
   const donationCounts = {

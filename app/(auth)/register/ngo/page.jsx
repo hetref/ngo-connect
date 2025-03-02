@@ -203,7 +203,7 @@ const NgoRegistrationPage = () => {
         </LabelInputContainer>
 
         <LabelInputContainer className="mb-4">
-          <Label htmlFor="name">Full Name</Label>
+          <Label htmlFor="name">Admin Name</Label>
           <Input
             id="name"
             name="name"
@@ -259,20 +259,22 @@ const NgoRegistrationPage = () => {
         </LabelInputContainer>
 
         <LabelInputContainer className="mb-4">
-          <Label htmlFor="pan">Pan Number</Label>
+          <Label htmlFor="registrationNumber">Registration Number</Label>
           <Input
-            id="pan"
-            name="pan"
-            placeholder="A123456789"
-            value={formData.pan}
+            id="registrationNumber"
+            name="registrationNumber"
+            placeholder="S/12345/UP/2023"
+            value={formData.registrationNumber}
             onChange={handleChange}
             required
             disabled={otpSent && !verifiedEmail}
+            pattern="(S/\d{5}/[A-Z]{2,}/\d{4})|(\d{3,}/Trust/\d{4})|(U\d{5}[A-Z]{2}\d{4}NPL\d{6})"
+            title="Enter a valid Indian NGO Registration Number (e.g., S/12345/UP/2023, 123/Trust/2022, U12345DL2023NPL012345)"
             className="border border-gray-300 rounded-md p-2 focus:outline-none focus:ring-2 focus:ring-[#1CAC78] focus:border-transparent"
           />
-          {invalidInputs.includes("pan") && (
+          {invalidInputs.includes("registrationNumber") && (
             <p className="text-red-500 text-sm">
-              Please enter a valid PAN number.
+              Please enter a valid registration number (e.g., S/12345/UP/2023, 123/Trust/2022, U12345DL2023NPL012345).
             </p>
           )}
         </LabelInputContainer>

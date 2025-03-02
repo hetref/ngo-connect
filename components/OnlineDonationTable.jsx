@@ -68,6 +68,7 @@ export function OnlineDonationTable() {
   const [paymentMethod, setPaymentMethod] = useState("");
   const [donationDate, setDonationDate] = useState("");
   const [reason, setReason] = useState("");
+  const [userData, setUserData] = useState(null);
 
   // Add online donation form state
   const [addDonationOpen, setAddDonationOpen] = useState(false);
@@ -126,9 +127,58 @@ export function OnlineDonationTable() {
   );
 
   useEffect(() => {
-    // Get current year and NGO ID
+    // First fetch user data to determine the correct NGO ID
+    const fetchUserData = async () => {
+      try {
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          console.log("No user found");
+          setLoading(false);
+          return;
+        }
+
+        // Get user document to check role and type
+        const userDoc = await getDoc(doc(db, "users", currentUser.uid));
+        if (!userDoc.exists()) {
+          console.log("User document not found");
+          setLoading(false);
+          return;
+        }
+
+        const userDataFromFirestore = userDoc.data();
+        setUserData(userDataFromFirestore);
+
+        // Now that we have user data, set up the donation listeners
+        setupDonationListeners(userDataFromFirestore);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
+
+  // Set up donation listeners with the appropriate NGO ID
+  const setupDonationListeners = (userDataFromFirestore) => {
+    // Get current year
     const currentYear = new Date().getFullYear().toString();
-    const ngoId = auth.currentUser?.uid;
+
+    // Determine which NGO ID to use based on user type and role
+    let ngoId;
+
+    if (userDataFromFirestore.type === "ngo") {
+      if (userDataFromFirestore.role === "admin") {
+        // For NGO admin, use their own ID
+        ngoId = auth.currentUser.uid;
+      } else if (userDataFromFirestore.role === "member") {
+        // For NGO member, use the ngoId from their user data
+        ngoId = userDataFromFirestore.ngoId;
+      }
+    } else {
+      // For other user types, use their own ID (fallback)
+      ngoId = auth.currentUser.uid;
+    }
 
     if (!ngoId) {
       console.log("No NGO ID found");
@@ -150,7 +200,7 @@ export function OnlineDonationTable() {
       if (completedUnsubscribe) completedUnsubscribe();
       if (approvalsUnsubscribe) approvalsUnsubscribe();
     };
-  }, []);
+  };
 
   // Set up listener for completed donations (from online collection)
   const setupCompletedDonationsListener = (ngoId, currentYear) => {

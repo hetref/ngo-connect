@@ -22,76 +22,136 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
-import { useState } from "react";
-
-// Mock data for demonstration
-const donationOverview = {
-  totalDonations: 10000,
-  sponsoredEvents: 5,
-  upcomingRecurring: 1000,
-};
-
-const recentDonations = [
-  {
-    id: 1,
-    ngo: "Clean Oceans",
-    amount: 5000,
-    date: "2023-07-15",
-    method: "UPI",
-    status: "Completed",
-  },
-  {
-    id: 2,
-    ngo: "Green Earth",
-    amount: 3000,
-    date: "2023-06-20",
-    method: "Credit Card",
-    status: "Completed",
-  },
-  {
-    id: 3,
-    ngo: "Feeding India",
-    amount: 2000,
-    date: "2023-05-10",
-    method: "Net Banking",
-    status: "Completed",
-  },
-];
-
-const sponsoredEvents = [
-  {
-    id: 1,
-    name: "Annual Fundraiser",
-    ngo: "Education for All",
-    amount: 10000,
-    date: "2023-08-01",
-  },
-  {
-    id: 2,
-    name: "Marathon for Health",
-    ngo: "Health First",
-    amount: 5000,
-    date: "2023-09-15",
-  },
-];
-
-const impactData = [
-  { month: "Jan", beneficiaries: 50 },
-  { month: "Feb", beneficiaries: 80 },
-  { month: "Mar", beneficiaries: 120 },
-  { month: "Apr", beneficiaries: 200 },
-  { month: "May", beneficiaries: 180 },
-  { month: "Jun", beneficiaries: 250 },
-];
-
-// Sample donor information
-const donorInfo = {
-  name: "Ayushi Jadhav",
-  email: "ayushijadhav2006@gmail.com",
-};
+import { useState, useEffect } from "react";
+import { db, auth } from "@/lib/firebase"; // Import Firebase
+import {
+  collection,
+  doc,
+  getDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
+} from "firebase/firestore";
+import Link from "next/link";
 
 export default function UserDonatePage() {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [donationOverview, setDonationOverview] = useState({
+    totalDonations: 0,
+    sponsoredEvents: 0,
+    upcomingRecurring: 0,
+  });
+  const [recentDonations, setRecentDonations] = useState([]);
+  const [donorInfo, setDonorInfo] = useState({
+    name: "",
+    email: "",
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      try {
+        setLoading(true);
+        const user = auth.currentUser;
+
+        if (!user) {
+          console.error("No user logged in");
+          setLoading(false);
+          return;
+        }
+
+        const userId = user.uid;
+
+        // Fetch user profile data
+        const userRef = doc(db, "users", userId);
+        const userSnap = await getDoc(userRef);
+
+        if (userSnap.exists()) {
+          const userData = userSnap.data();
+
+          // Set donor info
+          setDonorInfo({
+            name: userData.name || userData.displayName || "",
+            email: userData.email || user.email || "",
+          });
+
+          // Set total donations
+          setDonationOverview((prev) => ({
+            ...prev,
+            totalDonations: userData.totalDonated || 0,
+          }));
+        }
+
+        // Fetch donation count (to how many NGOs)
+        const donateToRef = collection(db, "users", userId, "donatedTo");
+        const donateToSnap = await getDocs(donateToRef);
+        const uniqueNgos = new Set();
+
+        donateToSnap.forEach((doc) => {
+          uniqueNgos.add(doc.id);
+        });
+
+        setDonationOverview((prev) => ({
+          ...prev,
+          sponsoredEvents: uniqueNgos.size,
+        }));
+
+        // Get current date information for fetching current month donations
+        const currentDate = new Date();
+        const currentYear = currentDate.getFullYear().toString();
+        const currentMonth = currentDate.getMonth().toString(); // 0-indexed months
+        console.log(currentMonth, currentYear);
+        // Fetch recent donations
+        const recentDonationsArray = [];
+
+        for (const ngoId of uniqueNgos) {
+          // Fetch NGO name
+          const ngoRef = doc(db, "ngo", ngoId);
+          const ngoSnap = await getDoc(ngoRef);
+          const ngoName = ngoSnap.exists()
+            ? ngoSnap.data().ngoName
+            : "Unknown NGO";
+
+          // Fetch donations for this NGO
+          console.log(userId);
+          const donationsPath = `users/${userId}/${currentYear}/${currentMonth}/${ngoId}`;
+          const donationsRef = collection(db, donationsPath);
+          const donationsSnap = await getDocs(donationsRef);
+
+          donationsSnap.forEach((donationDoc) => {
+            const donationData = donationDoc.data();
+            recentDonationsArray.push({
+              id: donationDoc.id,
+              ngo: ngoName,
+              amount: donationData.amount || 0,
+              date: donationData.donatedOn
+                ? new Date(donationData.donatedOn.seconds * 1000)
+                    .toISOString()
+                    .split("T")[0]
+                : "",
+              method: donationData.type || "Unknown",
+              status: "Completed", // Assuming all stored donations are completed
+              ngoId: ngoId,
+            });
+          });
+        }
+
+        // Sort by date (newest first) and set state
+        recentDonationsArray.sort(
+          (a, b) => new Date(b.date) - new Date(a.date)
+        );
+        setRecentDonations(recentDonationsArray);
+
+        setLoading(false);
+      } catch (error) {
+        console.error("Error fetching user data:", error);
+        setLoading(false);
+      }
+    };
+
+    fetchUserData();
+  }, []);
 
   // Function to create a printable window with the tax receipt
   const generateTaxReceipt = () => {
@@ -104,9 +164,10 @@ export default function UserDonatePage() {
       );
 
       // Calculate total amount
-      const totalAmount =
-        completedDonations.reduce((sum, d) => sum + d.amount, 0) +
-        sponsoredEvents.reduce((sum, e) => sum + e.amount, 0);
+      const totalAmount = completedDonations.reduce(
+        (sum, d) => sum + d.amount,
+        0
+      );
 
       // Create receipt number
       const receiptNumber = `R-${Math.floor(Math.random() * 10000)}-${new Date().getFullYear()}`;
@@ -177,19 +238,6 @@ export default function UserDonatePage() {
             <td>₹${donation.amount}</td>
             <td>${donation.date}</td>
             <td>${donation.method}</td>
-            <td>80G</td>
-          </tr>
-        `;
-      });
-
-      // Add rows for sponsored events
-      sponsoredEvents.forEach((event) => {
-        receiptHTML += `
-          <tr>
-            <td>${event.name} (${event.ngo})</td>
-            <td>₹${event.amount}</td>
-            <td>${event.date}</td>
-            <td>Sponsorship</td>
             <td>80G</td>
           </tr>
         `;
@@ -268,6 +316,7 @@ export default function UserDonatePage() {
           <div class="section">
             <div class="section-title">Donor Details:</div>
             <div class="info-line">Name: ${donorInfo.name}</div>
+            <div class="info-line">Email: ${donorInfo.email}</div>
           </div>
           
           <div class="section">
@@ -283,7 +332,6 @@ export default function UserDonatePage() {
           <div class="disclaimer">
             This receipt is electronically generated and is valid for income tax purposes under Section 80G of the Income Tax Act, 1961.
           </div>
-          
           
           <div style="text-align: center; margin-top: 30px;">
             <button onclick="window.print()">Print Receipt</button>
@@ -317,101 +365,110 @@ export default function UserDonatePage() {
     >
       <h1 className="text-3xl font-bold mb-8">Donations</h1>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Donations Overview</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">
-                ₹{donationOverview.totalDonations}
-              </h3>
-              <p className="text-gray-500">Total Donations Made</p>
-            </div>
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">
-                {donationOverview.sponsoredEvents}
-              </h3>
-              <p className="text-gray-500">Total Sponsored Events</p>
-            </div>
-            <div className="text-center">
-              <h3 className="text-2xl font-bold">
-                ₹{donationOverview.upcomingRecurring}
-              </h3>
-              <p className="text-gray-500">Upcoming Recurring Donations</p>
-            </div>
-          </div>
-          <div className="mt-4 text-center">
-            <Button
-              variant="outline"
-              onClick={generateTaxReceipt}
-              disabled={isGenerating}
-            >
-              <Download className="w-4 h-4 mr-2" />
-              {isGenerating ? "Generating..." : "Download Tax Receipt"}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+      {loading ? (
+        <div className="text-center py-8">
+          <p>Loading your donation data...</p>
+        </div>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Donations Overview</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    ₹{donationOverview.totalDonations}
+                  </h3>
+                  <p className="text-gray-500">Total Donations Made</p>
+                </div>
+                <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    {donationOverview.sponsoredEvents}
+                  </h3>
+                  <p className="text-gray-500">Total NGOs Supported</p>
+                </div>
+                {/* <div className="text-center">
+                  <h3 className="text-2xl font-bold">
+                    ₹{donationOverview.upcomingRecurring}
+                  </h3>
+                  <p className="text-gray-500">Upcoming Recurring Donations</p>
+                </div> */}
+              </div>
+              <div className="mt-4 text-center">
+                <Button
+                  variant="outline"
+                  onClick={generateTaxReceipt}
+                  disabled={isGenerating || recentDonations.length === 0}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  {isGenerating ? "Generating..." : "Download Tax Receipt"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Donations</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>NGO</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead>Payment Method</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {recentDonations.map((donation) => (
-                <TableRow key={donation.id}>
-                  <TableCell>{donation.ngo}</TableCell>
-                  <TableCell>₹{donation.amount}</TableCell>
-                  <TableCell>{donation.date}</TableCell>
-                  <TableCell>{donation.method}</TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        donation.status === "Completed"
-                          ? "default"
-                          : "secondary"
-                      }
-                    >
-                      {donation.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => viewIndividualReceipt(donation)}
-                      disabled={donation.status !== "Completed"}
-                    >
-                      <FileText className="w-4 h-4 mr-2" />
-                      View Receipt
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+          {recentDonations.length > 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>Recent Donations</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>NGO</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Payment Method</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {recentDonations.map((donation) => (
+                      <TableRow key={`${donation.ngoId}-${donation.id}`}>
+                        <TableCell>{donation.ngo}</TableCell>
+                        <TableCell>₹{donation.amount}</TableCell>
+                        <TableCell>{donation.date}</TableCell>
+                        <TableCell>{donation.method}</TableCell>
+                        <TableCell>
+                          <Badge variant="default">{donation.status}</Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => viewIndividualReceipt(donation)}
+                          >
+                            <FileText className="w-4 h-4 mr-2" />
+                            View Receipt
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardContent className="text-center py-8">
+                <p>You haven't made any donations yet.</p>
+              </CardContent>
+            </Card>
+          )}
 
-      <div className="text-center space-x-4">
-        <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
-          Donate to a Cause Now!
-        </Button>
-      </div>
+          <div className="text-center space-x-4">
+            <Link href="/ngo">
+              <Button className="bg-[#1CAC78] hover:bg-[#158f63]">
+                Donate to a Cause Now!
+              </Button>
+            </Link>
+          </div>
+        </>
+      )}
     </motion.div>
   );
 }

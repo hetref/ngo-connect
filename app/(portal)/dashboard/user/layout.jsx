@@ -31,16 +31,16 @@ const NavConfig = {
       href: "/dashboard/user/activities/search-activity",
     },
     {
-      name: "Activity Participation",
+      name: "Participated Activities",
       icon: Calendar,
       href: "/dashboard/user/activities",
     },
+
     {
-      name: "Volunteered",
-      icon: UsersRound,
-      href: "/dashboard/user/volunteer",
+      name: "My Donations",
+      icon: IndianRupee,
+      href: "/dashboard/user/donations",
     },
-    { name: "Donations", icon: IndianRupee, href: "/dashboard/user/donations" },
   ],
   bottomNavItems: [
     { name: "Profile", icon: User, href: "/dashboard/user/profile" },

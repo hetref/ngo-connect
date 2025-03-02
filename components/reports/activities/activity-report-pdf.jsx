@@ -70,12 +70,12 @@ const styles = StyleSheet.create({
   },
   summary: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "space-around",
     marginBottom: 15,
     flexWrap: "wrap",
   },
   summaryItem: {
-    width: "30%",
+    width: "40%",
     marginBottom: 10,
     backgroundColor: "#f9f9f9",
     padding: 10,
@@ -109,7 +109,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#f5f5f5",
   },
   tableCol: {
-    width: "25%",
+    width: "33.33%",
     borderStyle: "solid",
     borderWidth: 1,
     borderColor: "#eaeaea",
@@ -188,12 +188,7 @@ const ActivityReportPDF = ({ reportData }) => (
               {reportData.activities.total}
             </Text>
           </View>
-          <View style={styles.summaryItem}>
-            <Text style={styles.summaryLabel}>Volunteers Engaged</Text>
-            <Text style={styles.summaryValue}>
-              {reportData.activities.volunteers}
-            </Text>
-          </View>
+
           <View style={styles.summaryItem}>
             <Text style={styles.summaryLabel}>Total Participants</Text>
             <Text style={styles.summaryValue}>
@@ -214,9 +209,6 @@ const ActivityReportPDF = ({ reportData }) => (
               <Text style={styles.tableHeaderCell}>Count</Text>
             </View>
             <View style={styles.tableCol}>
-              <Text style={styles.tableHeaderCell}>Volunteers</Text>
-            </View>
-            <View style={styles.tableCol}>
               <Text style={styles.tableHeaderCell}>Participants</Text>
             </View>
           </View>
@@ -231,9 +223,6 @@ const ActivityReportPDF = ({ reportData }) => (
                 <Text style={styles.tableCell}>{item.count}</Text>
               </View>
               <View style={styles.tableCol}>
-                <Text style={styles.tableCell}>{item.volunteers}</Text>
-              </View>
-              <View style={styles.tableCol}>
                 <Text style={styles.tableCell}>{item.participants}</Text>
               </View>
             </View>
@@ -242,16 +231,6 @@ const ActivityReportPDF = ({ reportData }) => (
 
         {/* Additional insights */}
         <View style={{ marginTop: 20 }}>
-          <Text style={styles.sectionTitle}>Key Insights</Text>
-          <Text style={{ fontSize: 10, marginBottom: 5 }}>
-            • Average volunteers per activity:{" "}
-            {reportData.activities.volunteers > 0 &&
-            reportData.activities.total > 0
-              ? (
-                  reportData.activities.volunteers / reportData.activities.total
-                ).toFixed(1)
-              : 0}
-          </Text>
           <Text style={{ fontSize: 10, marginBottom: 5 }}>
             • Average participants per activity:{" "}
             {reportData.activities.participants > 0 &&

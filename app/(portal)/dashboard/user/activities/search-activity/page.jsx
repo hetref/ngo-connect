@@ -355,7 +355,7 @@ export default function SearchActivitiesPage() {
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {/* <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Select value={category} onValueChange={setCategory}>
               <SelectTrigger>
                 <SelectValue placeholder="Category" />
@@ -400,11 +400,11 @@ export default function SearchActivitiesPage() {
                 className="w-full"
               />
             </div>
-          </div>
+          </div> */}
         </CardContent>
       </Card>
 
-      <Card>
+      {/* <Card>
         <CardHeader>
           <CardTitle>Search Results</CardTitle>
         </CardHeader>
@@ -474,7 +474,7 @@ export default function SearchActivitiesPage() {
             </div>
           )}
         </CardContent>
-      </Card>
+      </Card> */}
 
       <Card>
         <CardHeader>

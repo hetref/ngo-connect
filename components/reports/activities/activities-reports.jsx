@@ -33,7 +33,7 @@ import { db, auth } from "@/lib/firebase";
 // import { PDFDownloadLink } from "@react-pdf/renderer";
 import ActivityReportPDF from "./activity-report-pdf";
 import { PDFDownloadLink } from "@react-pdf/renderer";
-import { Skeleton } from "@/components/ui/skeleton"
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ActivitiesReports({ timeFrame }) {
   const [loading, setLoading] = useState(true);
@@ -41,7 +41,6 @@ export default function ActivitiesReports({ timeFrame }) {
   const [activityData, setActivityData] = useState({
     total: 0,
     breakdown: [],
-    volunteers: 0,
     participants: 0,
     categoryDistribution: [],
   });
@@ -59,7 +58,6 @@ export default function ActivitiesReports({ timeFrame }) {
     ngoInfo: ngoInfo,
     activities: {
       total: activityData.total,
-      volunteers: activityData.volunteers,
       participants: activityData.participants,
       breakdown: activityData.breakdown,
       timeFrame: timeFrame,
@@ -117,7 +115,6 @@ export default function ActivitiesReports({ timeFrame }) {
   // Process activities data
   const processActivitiesData = (activitiesSnapshot, timeLimit) => {
     let totalActivities = 0;
-    let totalVolunteers = 0;
     let totalParticipants = 0;
     const categoryCount = {};
 
@@ -148,7 +145,6 @@ export default function ActivitiesReports({ timeFrame }) {
         // Filter by time frame
         if (activityTimestamp >= timeLimit) {
           totalActivities++;
-          totalVolunteers += parseInt(activity.noOfVolunteers || 0);
           totalParticipants += parseInt(activity.noOfParticipants || 0);
 
           // Count by category
@@ -168,11 +164,10 @@ export default function ActivitiesReports({ timeFrame }) {
     const categoryBreakdown = Object.keys(categoryCount).map((category) => ({
       category,
       count: categoryCount[category],
-      volunteers: 0,
       participants: 0,
     }));
 
-    // Calculate volunteers and participants per category
+    // Calculate participants per category
     filteredActivities.forEach((activity) => {
       try {
         const category = activity.category;
@@ -181,9 +176,6 @@ export default function ActivitiesReports({ timeFrame }) {
             (item) => item.category === category
           );
           if (categoryIndex !== -1) {
-            categoryBreakdown[categoryIndex].volunteers += parseInt(
-              activity.noOfVolunteers || 0
-            );
             categoryBreakdown[categoryIndex].participants += parseInt(
               activity.noOfParticipants || 0
             );
@@ -202,7 +194,6 @@ export default function ActivitiesReports({ timeFrame }) {
     return {
       total: totalActivities,
       breakdown: categoryBreakdown,
-      volunteers: totalVolunteers,
       participants: totalParticipants,
       categoryDistribution: topCategories,
     };
@@ -310,11 +301,7 @@ export default function ActivitiesReports({ timeFrame }) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Skeleton className="h-6 w-40 mb-2" />
-                <Skeleton className="h-10 w-32" />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
               <div>
                 <Skeleton className="h-6 w-40 mb-2" />
                 <Skeleton className="h-10 w-32" />
@@ -386,7 +373,6 @@ export default function ActivitiesReports({ timeFrame }) {
                   <TableRow>
                     <TableHead>Category</TableHead>
                     <TableHead>Count</TableHead>
-                    <TableHead>Volunteers</TableHead>
                     <TableHead>Participants</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -395,7 +381,6 @@ export default function ActivitiesReports({ timeFrame }) {
                     <TableRow key={index}>
                       <TableCell>{item.category}</TableCell>
                       <TableCell>{item.count}</TableCell>
-                      <TableCell>{item.volunteers}</TableCell>
                       <TableCell>{item.participants}</TableCell>
                     </TableRow>
                   ))}
@@ -432,15 +417,7 @@ export default function ActivitiesReports({ timeFrame }) {
           <CardTitle>Engagement Overview</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">
-                Volunteer Participation
-              </h3>
-              <p className="text-2xl font-bold">
-                {activityData.volunteers} Volunteers
-              </p>
-            </div>
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <h3 className="text-lg font-semibold mb-2">Total Participants</h3>
               <p className="text-2xl font-bold">

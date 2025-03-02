@@ -26,13 +26,20 @@ const VerificationInformation = ({
   const [files, setFiles] = useState({});
   const [status, setStatus] = useState("");
 
+  const RequiredLabel = ({ children }) => (
+    <Label className="flex items-center gap-1">
+      <span className="text-red-500">*</span>
+      {children}
+    </Label>
+  );
+
   const documentTypes = [
     { name: "Registration Certificate", required: true },
-    { name: "12A Certificate", required: true },
-    { name: "80G Certificate", required: true },
     { name: "PAN Card of NGO", required: true },
     { name: "Trust Deed or MOA", required: true },
     { name: "Director or Trustee Aadhaar & PAN", required: true },
+    { name: "12A Certificate", required: false },
+    { name: "80G Certificate", required: false },
     { name: "FCRA Certificate", required: false },
     { name: "GST Certificate", required: false },
     { name: "Annual Reports & Financials", required: false },
@@ -102,12 +109,19 @@ const VerificationInformation = ({
     <Card>
       <CardHeader>
         <CardTitle>Verification & Compliance</CardTitle>
+        <div className="text-sm text-gray-500 mt-2">
+          <span className="text-red-500">*</span> Required fields
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="grid grid-cols-2 gap-x-4 gap-y-6">
           {documentTypes.map((type) => (
             <div key={type.name} className="space-y-2">
-              <Label>{type.name}</Label>
+              {type.required ? (
+                <RequiredLabel>{type.name}</RequiredLabel>
+              ) : (
+                <Label>{type.name}</Label>
+              )}
               <div className="flex items-center space-x-2">
                 {documents[type.name] ? (
                   <>
@@ -145,7 +159,7 @@ const VerificationInformation = ({
             </div>
           ))}
           <div className="space-y-2">
-            <Label>Government Recognition Status</Label>
+            <RequiredLabel>Government Recognition Status</RequiredLabel>
             <Select
               className="border-gray-300"
               value={status}
@@ -160,7 +174,7 @@ const VerificationInformation = ({
               <SelectContent>
                 <SelectItem value="recognized">Recognized</SelectItem>
                 <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="not-applicable">Not Applicable</SelectItem>
+                <SelectItem value="not-applied">Not Applied</SelectItem>
               </SelectContent>
             </Select>
           </div>

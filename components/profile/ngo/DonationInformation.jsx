@@ -13,6 +13,13 @@ import { useAccount, useDisconnect, useEnsAvatar, useEnsName } from "wagmi";
 import { useWriteContract, useReadContract } from "wagmi";
 import { SuperAdminABI } from "@/constants/contract";
 
+const RequiredLabel = ({ children }) => (
+  <Label className="flex items-center gap-1">
+    <span className="text-red-500">*</span>
+    {children}
+  </Label>
+);
+
 const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
   const [donationsData, setDonationsData] = useState({
     razorpayKeyId: "",
@@ -135,12 +142,13 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
 
     if (
       donationsData.isBankTransferEnabled &&
-      (donationsData.bankTransferDetails.accountHolderName === "" ||
-        donationsData.bankTransferDetails.bankName === "" ||
-        donationsData.bankTransferDetails.branchNameAddress === "" ||
-        donationsData.bankTransferDetails.accountNumber === "" ||
-        donationsData.bankTransferDetails.accountType === "" ||
-        donationsData.bankTransferDetails.ifscCode === "")
+      (!donationsData.bankTransferDetails ||
+        !donationsData.bankTransferDetails.accountHolderName ||
+        !donationsData.bankTransferDetails.bankName ||
+        !donationsData.bankTransferDetails.branchNameAddress ||
+        !donationsData.bankTransferDetails.accountNumber ||
+        !donationsData.bankTransferDetails.accountType ||
+        !donationsData.bankTransferDetails.ifscCode)
     ) {
       toast.error("All bank transfer details are required.");
       return;
@@ -188,20 +196,49 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
   };
 
   const handleBankTransferChange = (e, key) => {
+    // Initialize bankTransferDetails if it doesn't exist
+    const currentBankDetails = donationsData.bankTransferDetails || {
+      accountHolderName: "",
+      bankName: "",
+      branchNameAddress: "",
+      accountNumber: "",
+      accountType: "",
+      ifscCode: "",
+    };
+
     setDonationsData((prev) => ({
       ...prev,
       bankTransferDetails: {
-        ...prev.bankTransferDetails,
+        ...currentBankDetails,
         [key]: e.target.value,
       },
     }));
   };
 
   const toggleBankTransfer = () => {
-    setDonationsData((prev) => ({
-      ...prev,
-      isBankTransferEnabled: !prev.isBankTransferEnabled,
-    }));
+    // Initialize bank details if enabling for the first time
+    if (
+      !donationsData.isBankTransferEnabled &&
+      !donationsData.bankTransferDetails
+    ) {
+      setDonationsData((prev) => ({
+        ...prev,
+        isBankTransferEnabled: true,
+        bankTransferDetails: {
+          accountHolderName: "",
+          bankName: "",
+          branchNameAddress: "",
+          accountNumber: "",
+          accountType: "",
+          ifscCode: "",
+        },
+      }));
+    } else {
+      setDonationsData((prev) => ({
+        ...prev,
+        isBankTransferEnabled: !prev.isBankTransferEnabled,
+      }));
+    }
   };
 
   const toggleCryptoTransfer = () => {
@@ -225,10 +262,13 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
     <Card>
       <CardHeader>
         <CardTitle>Donation & Payout Settings</CardTitle>
+        <div className="text-sm text-gray-500 mt-2">
+          <span className="text-red-500">*</span> Required fields
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">
-          <Label>Razorpay Credentials</Label>
+          <RequiredLabel>Razorpay Credentials</RequiredLabel>
           <Input
             placeholder="Razorpay Key ID"
             value={donationsData.razorpayKeyId}
@@ -236,7 +276,7 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
             className="border-gray-300"
             required
             disabled={shouldDisableInputs}
-            title={shouldDisableInputs ? pendingTitle : ""}
+            title={shouldDisableInputs ? pendingTitle : "Your Razorpay Key ID"}
           />
           <Input
             placeholder="Razorpay Key Secret"
@@ -245,7 +285,9 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
             className="border-gray-300"
             required
             disabled={shouldDisableInputs}
-            title={shouldDisableInputs ? pendingTitle : ""}
+            title={
+              shouldDisableInputs ? pendingTitle : "Your Razorpay Key Secret"
+            }
           />
         </div>
         <div className="space-y-2">
@@ -257,71 +299,124 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
                 onChange={toggleBankTransfer}
                 className="mr-2"
                 disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
+                title={
+                  shouldDisableInputs
+                    ? pendingTitle
+                    : "Enable bank transfer option for donors"
+                }
               />
               Enable Bank Transfers
             </Label>
           </div>
           {donationsData.isBankTransferEnabled && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-2 gap-y-4">
-              <Input
-                placeholder="Account Holder Name"
-                value={donationsData.bankTransferDetails.accountHolderName}
-                onChange={(e) =>
-                  handleBankTransferChange(e, "accountHolderName")
-                }
-                className="border-gray-300"
-                required
-                disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
-              />
-              <Input
-                placeholder="Bank Name"
-                value={donationsData.bankTransferDetails.bankName}
-                onChange={(e) => handleBankTransferChange(e, "bankName")}
-                className="border-gray-300"
-                required
-                disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
-              />
-              <Input
-                placeholder="Branch Name & Address"
-                value={donationsData.bankTransferDetails.branchNameAddress}
-                onChange={(e) =>
-                  handleBankTransferChange(e, "branchNameAddress")
-                }
-                className="border-gray-300"
-                required
-                disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
-              />
-              <Input
-                placeholder="Account Number"
-                value={donationsData.bankTransferDetails.accountNumber}
-                onChange={(e) => handleBankTransferChange(e, "accountNumber")}
-                className="border-gray-300"
-                required
-                disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
-              />
-              <Input
-                placeholder="Account Type (Savings/Current)"
-                value={donationsData.bankTransferDetails.accountType}
-                onChange={(e) => handleBankTransferChange(e, "accountType")}
-                className="border-gray-300"
-                required
-                disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
-              />
-              <Input
-                placeholder="IFSC Code"
-                value={donationsData.bankTransferDetails.ifscCode}
-                onChange={(e) => handleBankTransferChange(e, "ifscCode")}
-                className="border-gray-300"
-                required
-                disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
-              />
+              <div className="space-y-1">
+                <RequiredLabel>Account Holder Name</RequiredLabel>
+                <Input
+                  placeholder="Account Holder Name"
+                  value={
+                    donationsData.bankTransferDetails?.accountHolderName || ""
+                  }
+                  onChange={(e) =>
+                    handleBankTransferChange(e, "accountHolderName")
+                  }
+                  className="border-gray-300"
+                  required
+                  disabled={shouldDisableInputs}
+                  title={
+                    shouldDisableInputs
+                      ? pendingTitle
+                      : "Name as it appears on your bank account"
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <RequiredLabel>Bank Name</RequiredLabel>
+                <Input
+                  placeholder="Bank Name"
+                  value={donationsData.bankTransferDetails?.bankName || ""}
+                  onChange={(e) => handleBankTransferChange(e, "bankName")}
+                  className="border-gray-300"
+                  required
+                  disabled={shouldDisableInputs}
+                  title={
+                    shouldDisableInputs ? pendingTitle : "Name of your bank"
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <RequiredLabel>Branch Name & Address</RequiredLabel>
+                <Input
+                  placeholder="Branch Name & Address"
+                  value={
+                    donationsData.bankTransferDetails?.branchNameAddress || ""
+                  }
+                  onChange={(e) =>
+                    handleBankTransferChange(e, "branchNameAddress")
+                  }
+                  className="border-gray-300"
+                  required
+                  disabled={shouldDisableInputs}
+                  title={
+                    shouldDisableInputs
+                      ? pendingTitle
+                      : "Branch name and address of your bank"
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <RequiredLabel>Account Number</RequiredLabel>
+                <Input
+                  placeholder="Account Number"
+                  value={donationsData.bankTransferDetails?.accountNumber || ""}
+                  onChange={(e) => handleBankTransferChange(e, "accountNumber")}
+                  className="border-gray-300"
+                  required
+                  disabled={shouldDisableInputs}
+                  title={
+                    shouldDisableInputs
+                      ? pendingTitle
+                      : "Your bank account number"
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <RequiredLabel>Account Type</RequiredLabel>
+                <Input
+                  placeholder="Account Type (Savings/Current)"
+                  value={donationsData.bankTransferDetails?.accountType || ""}
+                  onChange={(e) => handleBankTransferChange(e, "accountType")}
+                  className="border-gray-300"
+                  required
+                  disabled={shouldDisableInputs}
+                  title={
+                    shouldDisableInputs
+                      ? pendingTitle
+                      : "Type of account (Savings/Current)"
+                  }
+                />
+              </div>
+
+              <div className="space-y-1">
+                <RequiredLabel>IFSC Code</RequiredLabel>
+                <Input
+                  placeholder="IFSC Code"
+                  value={donationsData.bankTransferDetails?.ifscCode || ""}
+                  onChange={(e) => handleBankTransferChange(e, "ifscCode")}
+                  className="border-gray-300"
+                  required
+                  disabled={shouldDisableInputs}
+                  title={
+                    shouldDisableInputs
+                      ? pendingTitle
+                      : "IFSC code of your bank branch"
+                  }
+                />
+              </div>
             </div>
           )}
         </div>
@@ -335,7 +430,11 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
                 onChange={toggleCryptoTransfer}
                 className="mr-2"
                 disabled={shouldDisableInputs}
-                title={shouldDisableInputs ? pendingTitle : ""}
+                title={
+                  shouldDisableInputs
+                    ? pendingTitle
+                    : "Enable cryptocurrency donations"
+                }
               />
               Enable Crypto Transfers
             </Label>
@@ -351,7 +450,11 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
                   required
                   readOnly
                   disabled={shouldDisableInputs}
-                  title={shouldDisableInputs ? pendingTitle : ""}
+                  title={
+                    shouldDisableInputs
+                      ? pendingTitle
+                      : "Your connected wallet address"
+                  }
                 />
               )}
 
@@ -380,7 +483,11 @@ const DonationInformation = ({ ngoId, approvalStatus, verificationStatus }) => {
             onChange={(e) => handleChange(e, "acknowledgmentMessage")}
             className="border-gray-300"
             disabled={shouldDisableInputs}
-            title={shouldDisableInputs ? pendingTitle : ""}
+            title={
+              shouldDisableInputs
+                ? pendingTitle
+                : "Message that will be shown to donors after a successful donation"
+            }
           />
         </div>
         <Button

@@ -31,6 +31,11 @@ const NavConfig = {
       href: "/dashboard/user/activities/search-activity",
     },
     {
+      name: "Campaigns",
+      icon: Settings,
+      href: "/dashboard/user/campaigns/search-campaign",
+    },
+    {
       name: "Activity Participation",
       icon: Calendar,
       href: "/dashboard/user/activities",
